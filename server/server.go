@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"sync"
@@ -23,16 +22,12 @@ import (
 
 // connectLogEntry is a datastructure for recording initial connection information.
 type connectLogEntry struct {
-	Method        string      `json:"method"`
-	URL           *url.URL    `json:"url"`
-	Proto         string      `json:"proto"`
-	Header        http.Header `json:"header"`
-	Body          string      `json:"body"`
-	ContentLength int64       `json:"contentLength"`
-	Host          string      `json:"host"`
-	RemoteAddr    string      `json:"remoteAddr"`
-	RequestURI    string      `json:"requestURI"`
-	Trailer       http.Header `json:"trailer"`
+	Method     string      `json:"method"`
+	Proto      string      `json:"proto"`
+	Host       string      `json:"host"`
+	RequestURI string      `json:"requestURI"`
+	RemoteAddr string      `json:"remoteAddr"`
+	Header     http.Header `json:"header"`
 }
 
 // sessionLogEntry is a datastructure for recording general activity between client and server.
@@ -217,28 +212,20 @@ func (s *Server) echoHandler(ws *websocket.Conn) {
 	}
 }
 
-// LogConnect logs information from the socket when the client first connects to the server.
+// LogConnect is used to log request information when the client first connects to the server.
 func (s *Server) LogConnect(r *http.Request) {
-	var cl int64
-	if r.ContentLength > 0 {
-		cl = r.ContentLength
-	}
-
 	b, _ := json.Marshal(&connectLogEntry{
-		Method:        r.Method,
-		URL:           r.URL,
-		Proto:         r.Proto,
-		Header:        r.Header,
-		ContentLength: cl,
-		Host:          r.Host,
-		RemoteAddr:    r.RemoteAddr,
-		RequestURI:    r.RequestURI,
-		Trailer:       r.Trailer,
+		Method:     r.Method,
+		Proto:      r.Proto,
+		Host:       r.Host,
+		RequestURI: r.RequestURI,
+		RemoteAddr: r.RemoteAddr,
+		Header:     r.Header,
 	})
 	s.log.Infof(`{"connected":%s}`, string(b))
 }
 
-// LogSession is used to record information received in the client's session.
+// LogSession is used to record information received during the client's session.
 func (s *Server) LogSession(tp string, addr string, msg string) {
 	b, _ := json.Marshal(&sessionLogEntry{
 		RemoteAddr: addr,
@@ -247,7 +234,7 @@ func (s *Server) LogSession(tp string, addr string, msg string) {
 	s.log.Infof(`{"%s":%s}`, tp, string(b))
 }
 
-// LogError is used to record information regarding misc session errors between server and client.
+// LogError is used to record misc session error information between server and client.
 func (s *Server) LogError(addr string, msg string) {
 	b, _ := json.Marshal(&sessionLogEntry{
 		RemoteAddr: addr,

@@ -13,7 +13,7 @@ const (
 	DefaultMaxIdle    = 0           // Maximum idle seconds per user connection. *
 	DefaultMaxProcs   = 0           // Maximum number of computer processors to utilize. *
 
-	// * zeros = no change or no limitations or not enabled.
+	// * zeros = no change or no limitation or not enabled.
 
 	// Listener and connections.
 	TCPKeepAliveTimeout = 3 * time.Minute  // deprecated
