@@ -1,0 +1,32 @@
+language: go
+
+go:
+  - 1.4.2
+  - tip
+
+os:
+  - linux
+  - osx
+
+branches:
+  only:
+    - master
+
+install:
+  - go get golang.org/x/tools/cmd/vet
+  - go get golang.org/x/tools/cmd/cover
+  - go get github.com/mattn/goveralls
+
+script:
+  - ./travis/gofmt.sh
+  - ./travis/govet.sh
+  - go test -i -race ./...
+  - go test -v -race ./...
+  - ./travis/coveralls-script.sh
+
+notifications:
+  email: false
+
+env:
+  global:
+    secure: WHnLVWAezSTM62/N2vu/g5UoQ6c3NQrSPLE+dJMIs0nj1H/8VJlYXCBpSp6kprrpe2exj3FTNS14VXdOwTEHmFR/HLmGZFUNDm3DREN6AANn9rtbjni17LlFfo5VuY/e0fqyVm6VqDyWB3qHg3pkgZq5iT5tNT+2rlTuKeiQfDE=

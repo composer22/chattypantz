@@ -1,0 +1,14 @@
+# For additional unix tools in a small image use one of these:
+# FROM busybox
+# FROM phusion/baseimage
+FROM scratch
+MAINTAINER Bryan-Kirk Reinhardt
+
+ADD chattypantz /chattypantz
+
+CMD []
+
+ENTRYPOINT ["/chattypantz", "-N", "Demo", "-H", "0.0.0.0"]
+
+# 6060 is exposed as a profiler port if you ever need it.
+EXPOSE 6660 6060
