@@ -10,6 +10,11 @@ import (
 	"golang.org/x/net/websocket"
 )
 
+var (
+	maxChatterRsp   = 1000                   // The maximum number of responses in the response channel.
+	maxChatterSleep = 100 * time.Millisecond // How long to sleep between chan peeks.
+)
+
 // Chatter is a wrapper around a connection that represents one chat client on the server.
 type Chatter struct {
 	srvr     *Server            // The server this chatter is connected to.
@@ -30,7 +35,7 @@ func ChatterNew(s *Server, c *websocket.Conn) *Chatter {
 	return &Chatter{
 		srvr: s,
 		ws:   c,
-		rspq: make(chan *ChatResponse),
+		rspq: make(chan *ChatResponse, maxChatterRsp),
 	}
 }
 
@@ -113,6 +118,8 @@ func (c *Chatter) send() {
 					c.srvr.log.LogError(remoteAddr, fmt.Sprintf("Couldn't send. Error: %s", err.Error()))
 				}
 			}
+		default:
+			time.Sleep(maxChatterSleep)
 		}
 	}
 }
@@ -162,7 +169,7 @@ func (c *Chatter) sendRequestToRoom(r *ChatRequest) {
 }
 
 // sendResponse sends a message to a chatter.
-func (c *Chatter) sendResponse(rt byte, msg string) {
+func (c *Chatter) sendResponse(rt int, msg string) {
 	c.mu.Lock()
 	if c.rspq != nil {
 		c.rspq <- ChatResponseNew("", rt, msg)

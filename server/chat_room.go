@@ -3,15 +3,26 @@ package server
 import (
 	"fmt"
 	"sync"
+	"time"
+)
+
+var (
+	maxChatRoomReq   = 1000                   // The maximum number of requests in the req channel.
+	maxChatRoomSleep = 100 * time.Millisecond // How long to sleep between chan peeks.
 )
 
 // ChatRoom represents a hub of chatters where messages can be exchanged.
 type ChatRoom struct {
 	name     string            // The name of the room.
-	chatters map[*Chatter]bool // A list of chatters in the room.
-	reqq     chan *ChatRequest // Channel to receive commands.
+	chatters map[*Chatter]bool // A list of chatters in the room and if they are hidden from view.
+	start    time.Time         // The start time of the room.
+	lastReq  time.Time         // The last request time to the room.
+	lastRsp  time.Time         // The last response time from the room.
+	reqCount int64             // Total requests received.
+	rspCount int64             // Total responses sent.
+	reqq     chan *ChatRequest // Channel to receive requests.
 	log      *ChatLogger       // Application log for events.
-	wg       *sync.WaitGroup   // Wait group for the run.
+	wg       *sync.WaitGroup   // Wait group for the run from the chat room manager.
 }
 
 // ChatRoomNew is a factory function that returns a new instance of a chat room.
@@ -19,7 +30,7 @@ func ChatRoomNew(n string, cl *ChatLogger, g *sync.WaitGroup) *ChatRoom {
 	return &ChatRoom{
 		name:     n,
 		chatters: make(map[*Chatter]bool),
-		reqq:     make(chan *ChatRequest),
+		reqq:     make(chan *ChatRequest, maxChatRoomReq),
 		log:      cl,
 		wg:       g,
 	}
@@ -28,12 +39,15 @@ func ChatRoomNew(n string, cl *ChatLogger, g *sync.WaitGroup) *ChatRoom {
 // Run is the main routine that is evoked in background to accept commands to the room
 func (r *ChatRoom) Run() {
 	defer r.wg.Done()
+	r.start = time.Now()
 	for {
 		select {
 		case req, ok := <-r.reqq:
 			if !ok { // Assume ch closed and shutdown notification
 				return
 			}
+			r.lastReq = time.Now()
+			r.reqCount++
 			switch req.reqType {
 			case ChatReqTypeListNames:
 				r.listNames(req)
@@ -46,8 +60,11 @@ func (r *ChatRoom) Run() {
 			case ChatReqTypeLeave:
 				r.leave(req)
 			default:
-				r.sendResponse(req.who, ChatRspTypeErrUnknownReq, fmt.Sprintf(`Unknown request sent to room "%s".`, r.name))
+				r.sendResponse(req.who, ChatRspTypeErrUnknownReq,
+					fmt.Sprintf(`Unknown request sent to room "%s".`, r.name))
 			}
+		default:
+			time.Sleep(maxChatRoomSleep)
 		}
 	}
 }
@@ -67,7 +84,8 @@ func (r *ChatRoom) listNames(q *ChatRequest) {
 func (r *ChatRoom) join(q *ChatRequest) {
 	_, ok := r.chatters[q.who]
 	if ok {
-		r.sendResponse(q.who, ChatRspTypeErrAlreadyJoined, fmt.Sprintf(`You are already a member of room "%s".`, r.name))
+		r.sendResponse(q.who, ChatRspTypeErrAlreadyJoined,
+			fmt.Sprintf(`You are already a member of room "%s".`, r.name))
 		return
 	}
 	if q.who.nickname == "" {
@@ -119,20 +137,25 @@ func (r *ChatRoom) leave(q *ChatRequest) {
 }
 
 // sendResponse sends a message to a single chatter in the room.
-func (r *ChatRoom) sendResponse(c *Chatter, rt byte, content string) {
+func (r *ChatRoom) sendResponse(c *Chatter, rt int, content string) {
 	c.mu.Lock()
 	if c.rspq != nil {
+		r.lastRsp = time.Now()
+		r.rspCount++
 		c.rspq <- ChatResponseNew(r.name, rt, content)
 	}
 	c.mu.Unlock()
 }
 
 // sendResponseAll sends a message to all chatters in the room.
-func (r *ChatRoom) sendResponseAll(rt byte, content string) {
+func (r *ChatRoom) sendResponseAll(rt int, content string) {
+
 	rsp := ChatResponseNew(r.name, rt, content)
 	for c := range r.chatters {
 		c.mu.Lock()
 		if c.rspq != nil {
+			r.lastRsp = time.Now()
+			r.rspCount++
 			c.rspq <- rsp
 		}
 		c.mu.Unlock()

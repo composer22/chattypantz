@@ -42,6 +42,7 @@ func (m *ChatRoomManager) createOrFind(n string) (*ChatRoom, error) {
 		r = ChatRoomNew(n, m.log, &m.wg)
 		m.wg.Add(1)
 		go r.Run()
+		m.rooms[n] = r
 	}
 	return r, nil
 }
