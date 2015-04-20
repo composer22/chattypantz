@@ -159,7 +159,7 @@ func (s *Server) handleSignals() {
 
 // chatHandler is the main entry point to handle chat connections to the client.
 func (s *Server) chatHandler(ws *websocket.Conn) {
-	s.log.LogConnect(r)
+	s.log.LogConnect(ws.Request())
 	ctr := ChatterNew(ws, s.info.MaxIdle, s.log)
 	ctr.Run()
 }

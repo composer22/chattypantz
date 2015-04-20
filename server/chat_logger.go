@@ -15,7 +15,7 @@ type ChatLogger struct {
 // ChatLoggerNew is a factory function that returns a new ChatLogger instance.
 func ChatLoggerNew() *ChatLogger {
 	return &ChatLogger{
-		logger.Logger: logger.New(logger.UseDefault, false),
+		logger.New(logger.UseDefault, false),
 	}
 }
 
