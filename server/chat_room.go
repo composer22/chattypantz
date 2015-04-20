@@ -3,158 +3,138 @@ package server
 import (
 	"fmt"
 	"sync"
-	"time"
-)
-
-var (
-	maxChatRoomCmds  = 1000                   // the maximum capacity of the cnd queue to the chat room.
-	maxChatRoomSleep = 100 * time.Millisecond // How long to sleep between msgq peeks.
 )
 
 // ChatRoom represents a hub of chatters where messages can be exchanged.
 type ChatRoom struct {
-	name     string            // The name of the room
-	chatters map[*Chatter]bool // a list of chatters in the room
-	Cmdq     chan *ChatCommand // Channel to receive commands
-	mu       sync.Mutex        // For locking access to chatter attributes.
+	name     string            // The name of the room.
+	chatters map[*Chatter]bool // A list of chatters in the room.
+	reqq     chan *ChatRequest // Channel to receive commands.
 	log      *ChatLogger       // Application log for events.
+	wg       *sync.WaitGroup   // Wait group for the run.
 }
 
 // ChatRoomNew is a factory function that returns a new instance of a chat room.
-func ChatRoomNew(n string, cl *ChatLogger, addedOpts ...func(*ChatRoom)) *ChatRoom {
-	cr := &ChatRoom{
+func ChatRoomNew(n string, cl *ChatLogger, g *sync.WaitGroup) *ChatRoom {
+	return &ChatRoom{
 		name:     n,
 		chatters: make(map[*Chatter]bool),
-		Cmdq:     make(chan *ChatCommand, maxChatRoomCmds),
+		reqq:     make(chan *ChatRequest),
 		log:      cl,
+		wg:       g,
 	}
-	// Additional hook for specialized custom options.
-	for _, f := range addedOpts {
-		f(cr)
-	}
-	return cr
 }
 
 // Run is the main routine that is evoked in background to accept commands to the room
 func (r *ChatRoom) Run() {
-loop:
+	defer r.wg.Done()
 	for {
 		select {
-		case cmd, ok := <-r.Cmdq:
+		case req, ok := <-r.reqq:
 			if !ok { // Assume ch closed and shutdown notification
-				break loop
+				return
 			}
-			// Respond to the received command
-			switch cmd.cmdType {
-			case ChatCmdTypeList:
-				r.list(cmd)
-			case ChatCmdTypeJoin:
-				r.join(cmd)
-			case ChatCmdTypeHide:
-				r.hide(cmd)
-			case ChatCmdTypeUnhide:
-				r.unhide(cmd)
-			case ChatCmdTypeChat:
-				r.chat(cmd)
-			case ChatCmdTypeLeave:
-				r.leave(cmd)
+			switch req.reqType {
+			case ChatReqTypeListNames:
+				r.listNames(req)
+			case ChatReqTypeJoin:
+				r.join(req)
+			case ChatReqTypeHide:
+				r.hide(req)
+			case ChatReqTypeMsg:
+				r.message(req)
+			case ChatReqTypeLeave:
+				r.leave(req)
 			default:
-				r.sendResponse(cmd.who, ChatRspTypeUnknownCmd, fmt.Sprintf(`Unknown command sent to room "%s".`, r.name))
+				r.sendResponse(req.who, ChatRspTypeErrUnknownReq, fmt.Sprintf(`Unknown request sent to room "%s".`, r.name))
 			}
-		default:
-			time.Sleep(maxChatRoomSleep) // Sleep before peeking again.
 		}
 	}
 }
 
-// list sends a message to the user of everyone's name in the room.
-func (r *ChatRoom) list(c *ChatCommand) {
-	defer r.mu.Lock()
+// listNames sends a response to the user with a list of all nicknames in the room.
+func (r *ChatRoom) listNames(q *ChatRequest) {
 	var members []string
-	for ct, hidden := range r.chatters {
-		if !hidden {
-			members = append(members, ct.nickname)
+	for c, hidden := range r.chatters {
+		if !hidden { // don't return hidden names.
+			members = append(members, c.nickname)
 		}
 	}
-	r.sendResponse(c.who, ChatRspTypeList, fmt.Sprint(members))
+	r.sendResponse(q.who, ChatRspTypeListNames, fmt.Sprint(members))
 }
 
 // join adds the chatter to the room and notifies the group of the new chatters arrival.
-func (r *ChatRoom) join(c *ChatCommand) {
-	defer r.mu.Lock()
-	_, ok := r.chatters[c.who]
+func (r *ChatRoom) join(q *ChatRequest) {
+	_, ok := r.chatters[q.who]
 	if ok {
-		r.sendResponse(c.who, ChatRspTypeAlreadyJoined, fmt.Sprintf(`You are already a member of room "%s".`, r.name))
+		r.sendResponse(q.who, ChatRspTypeErrAlreadyJoined, fmt.Sprintf(`You are already a member of room "%s".`, r.name))
 		return
 	}
-	r.chatters[c.who] = false
-	r.sendResponseAll(ChatRspTypeJoin, fmt.Sprintf("%s has joined the room.", c.who.nickname))
+	if q.who.nickname == "" {
+		r.sendResponse(q.who, ChatRspTypeErrNicknameMandatory,
+			fmt.Sprintf(`A nickname is mandatory to be a member of room "%s".`, r.name))
+		return
+	}
+	r.sendResponseAll(ChatRspTypeJoin, fmt.Sprintf("%s has joined the room.", q.who.nickname))
 }
 
-// hide hides a user from the user list
-func (r *ChatRoom) hide(c *ChatCommand) {
-	defer r.mu.Lock()
-	_, ok := r.chatters[c.who]
+// hide hides/unhides a nickname from the user list
+func (r *ChatRoom) hide(q *ChatRequest) {
+	_, ok := r.chatters[q.who]
 	if !ok {
-		r.sendResponse(c.who, ChatRspTypeNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
+		r.sendResponse(q.who, ChatRspTypeErrNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
 		return
 	}
-	r.chatters[c.who] = true
-	r.sendResponse(c.who, ChatRspTypeHidden, fmt.Sprintf(`You are now hidden in room "%s"`, r.name))
+	r.chatters[q.who] = !r.chatters[q.who]
+	htxt := "unhidden"
+	t := ChatRspTypeUnhidden
+	if r.chatters[q.who] {
+		htxt = "hidden"
+		t = ChatRspTypeHidden
+	}
+	r.sendResponse(q.who, t, fmt.Sprintf(`You are now %s in room "%s"`, htxt, r.name))
 }
 
-// unhide makes a user visible in the user list
-func (r *ChatRoom) unhide(c *ChatCommand) {
-	defer r.mu.Lock()
-	_, ok := r.chatters[c.who]
+// message sends a message from a chatter to everyone in the room.
+func (r *ChatRoom) message(q *ChatRequest) {
+	_, ok := r.chatters[q.who]
 	if !ok {
-		r.sendResponse(c.who, ChatRspTypeNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
+		r.sendResponse(q.who, ChatRspTypeErrNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
 		return
 	}
-	r.chatters[c.who] = false
-	r.sendResponse(c.who, ChatRspTypeUnhidden, fmt.Sprintf(`You are now unhidden in room "%s"`, r.name))
-}
-
-// chat sends a message from a user to everyone in the room.
-func (r *ChatRoom) chat(c *ChatCommand) {
-	defer r.mu.Lock()
-	_, ok := r.chatters[c.who]
-	if !ok {
-		r.sendResponse(c.who, ChatRspTypeNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
-		return
-	}
-	r.sendResponseAll(ChatRspTypeChat, fmt.Sprintf("%s: %s", c.who.nickname, c.msg))
+	r.sendResponseAll(ChatRspTypeMessage, fmt.Sprintf("%s: %s", q.who.nickname, q.content))
 }
 
 // leave removes the chatter from the room and notifies the group the chatter has left.
-func (r *ChatRoom) leave(c *ChatCommand) {
-	defer r.mu.Lock()
-	_, ok := r.chatters[c.who]
+func (r *ChatRoom) leave(q *ChatRequest) {
+	_, ok := r.chatters[q.who]
 	if !ok {
-		r.sendResponse(c.who, ChatRspTypeNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
+		r.sendResponse(q.who, ChatRspTypeErrNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
 		return
 	}
-	name := c.who.nickname
-	delete(r.chatters, c.who)
-	r.sendResponse(c.who, ChatRspTypeLeave, fmt.Sprintf(`You have left room "%s".`, r.name))
+	name := q.who.nickname
+	delete(r.chatters, q.who)
+	r.sendResponse(q.who, ChatRspTypeLeave, fmt.Sprintf(`You have left room "%s".`, r.name))
 	r.sendResponseAll(ChatRspTypeLeave, fmt.Sprintf("%s has left the room.", name))
 }
 
-// sendResponse sends a message to a single member in the room.
-func (r *ChatRoom) sendResponse(c *Chatter, rt int, msg string) {
-	defer r.mu.Lock()
+// sendResponse sends a message to a single chatter in the room.
+func (r *ChatRoom) sendResponse(c *Chatter, rt byte, content string) {
+	c.mu.Lock()
 	if c.rspq != nil {
-		c.rspq <- ChatResponseNew(r.name, rt, msg)
+		c.rspq <- ChatResponseNew(r.name, rt, content)
 	}
+	c.mu.Unlock()
 }
 
-// sendResponseAll sends a message to all members in the room.
-func (r *ChatRoom) sendResponseAll(rt int, msg string) {
-	defer r.mu.Lock()
-	rsp := ChatResponseNew(r.name, rt, msg)
+// sendResponseAll sends a message to all chatters in the room.
+func (r *ChatRoom) sendResponseAll(rt byte, content string) {
+	rsp := ChatResponseNew(r.name, rt, content)
 	for c := range r.chatters {
+		c.mu.Lock()
 		if c.rspq != nil {
 			c.rspq <- rsp
 		}
+		c.mu.Unlock()
 	}
 }

@@ -21,18 +21,20 @@ import (
 
 // Server is the main structure that represents a server instance.
 type Server struct {
-	info    *Info          // Basic server information used to run the server.
-	opts    *Options       // Original options used to create the server.
-	stats   *Status        // Server statistics since it started.
-	mu      sync.Mutex     // For locking access to server attributes.
-	running bool           // Is the server running?
-	log     *ChatLogger    // Log instance for recording error and other messages.
-	srvr    *http.Server   // HTTP server.
-	wg      sync.WaitGroup // Synchronization of channel close.
+	info     *Info            // Basic server information used to run the server.
+	opts     *Options         // Original options used to create the server.
+	stats    *Status          // Server statistics since it started.
+	mu       sync.Mutex       // For locking access to server attributes.
+	running  bool             // Is the server running?
+	log      *ChatLogger      // Log instance for recording error and other messages.
+	roomMngr *ChatRoomManager // Manager of chat rooms.
+	done     chan bool        // A channel to signal to web socked to close.
+	srvr     *http.Server     // HTTP server.
+	wg       sync.WaitGroup   // Synchronization of channel close.
 }
 
 // New is a factory function that returns a new server instance.
-func New(ops *Options, addedOpts ...func(*Server)) *Server {
+func New(ops *Options) *Server {
 	s := &Server{
 		info: InfoNew(func(i *Info) {
 			i.Name = ops.Name
@@ -57,17 +59,12 @@ func New(ops *Options, addedOpts ...func(*Server)) *Server {
 
 	// Setup the mutext, routes, middleware, and server.
 	http.Handle(wsRouteV1Conn, websocket.Handler(s.chatHandler))
-
 	s.srvr = &http.Server{
 		Addr: fmt.Sprintf("%s:%d", s.info.Hostname, s.info.Port),
 	}
 
-	s.handleSignals() // Evoke trap signals handler
-
-	// Additional hook for specialized custom options.
-	for _, f := range addedOpts {
-		f(s)
-	}
+	s.roomMngr = ChatRoomManagerNew(s.info.MaxRooms, s.log) // Set the manager of the chat rooms
+	s.handleSignals()                                       // Evoke trap signals handler
 	return s
 }
 
@@ -104,10 +101,12 @@ func (s *Server) Start() error {
 	}
 
 	s.stats.Start = time.Now()
+	s.done = make(chan bool)
 	s.running = true
 	s.mu.Unlock()
-
 	err = s.srvr.Serve(ln)
+
+	// Done.
 	s.mu.Lock()
 	s.running = false
 	s.mu.Unlock()
@@ -137,9 +136,13 @@ func (s *Server) Shutdown() {
 	s.log.Infof("BEGIN server service stop.")
 
 	s.mu.Lock()
+	s.log.Infof("\tShutting down chatters...")
+	close(s.done)
 	s.running = false
 	s.mu.Unlock()
-
+	s.wg.Wait()
+	s.log.Infof("\tShutting down rooms...")
+	s.roomMngr.shutDownRooms()
 	s.log.Infof("END server service stop.")
 }
 
@@ -160,8 +163,8 @@ func (s *Server) handleSignals() {
 // chatHandler is the main entry point to handle chat connections to the client.
 func (s *Server) chatHandler(ws *websocket.Conn) {
 	s.log.LogConnect(ws.Request())
-	ctr := ChatterNew(ws, s.info.MaxIdle, s.log)
-	ctr.Run()
+	c := ChatterNew(s, ws)
+	c.Run()
 }
 
 // isRunning returns a boolean representing whether the server is running or not.
