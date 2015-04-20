@@ -11,7 +11,7 @@ import (
 
 var (
 	maxChatMsgs  = 1000                   // Maximum cap of msgs that can be queued to the msg queue.
-	MaxChatSleep = 100 * time.Millisecond // How long to sleep between respq peeks.
+	maxChatSleep = 100 * time.Millisecond // How long to sleep between respq peeks.
 
 )
 
@@ -87,7 +87,7 @@ func (c *Chatter) receive() {
 		// leave room
 		//
 
-		time.Sleep(chatterMaxSleep) // Sleep before peeking again.
+		time.Sleep(maxChatSleep) // Sleep before peeking again.
 	}
 }
 
@@ -114,7 +114,7 @@ loop:
 				}
 			}
 		default:
-			time.Sleep(MaxChatSleep) // Sleep before peeking again.
+			time.Sleep(maxChatSleep) // Sleep before peeking again.
 		}
 	}
 }
