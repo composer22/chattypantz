@@ -15,19 +15,19 @@ const (
 
 // ChatRequest is a structure for commands sent for processing from the client.
 type ChatRequest struct {
-	who      *Chatter `json:"-"`        // The chatter who is issuing the request.
-	roomName string   `json:"roomName"` // The name of the room to receive the request.
-	reqType  int      `json:"reqType"`  // The command type ex: join, leave, send.
-	content  string   `json:"content"`  // Any message or text to interpret with the request.
+	Who      *Chatter `json:"-"`        // The chatter who is issuing the request.
+	RoomName string   `json:"roomName"` // The name of the room to receive the request.
+	ReqType  int      `json:"reqType"`  // The command type ex: join, leave, send.
+	Content  string   `json:"content"`  // Any message or text to interpret with the request.
 }
 
 // ChatMessageNew is a factory method that returns a new chat room message instance.
 func ChatRequestNew(c *Chatter, m string, ct int, n string) *ChatRequest {
 	return &ChatRequest{
-		who:      c,
-		roomName: m,
-		reqType:  ct,
-		content:  n,
+		Who:      c,
+		RoomName: m,
+		ReqType:  ct,
+		Content:  n,
 	}
 }
 

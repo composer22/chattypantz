@@ -48,7 +48,7 @@ func (r *ChatRoom) Run() {
 			}
 			r.lastReq = time.Now()
 			r.reqCount++
-			switch req.reqType {
+			switch req.ReqType {
 			case ChatReqTypeListNames:
 				r.listNames(req)
 			case ChatReqTypeJoin:
@@ -60,7 +60,7 @@ func (r *ChatRoom) Run() {
 			case ChatReqTypeLeave:
 				r.leave(req)
 			default:
-				r.sendResponse(req.who, ChatRspTypeErrUnknownReq,
+				r.sendResponse(req.Who, ChatRspTypeErrUnknownReq,
 					fmt.Sprintf(`Unknown request sent to room "%s".`, r.name))
 			}
 		default:
@@ -77,62 +77,62 @@ func (r *ChatRoom) listNames(q *ChatRequest) {
 			members = append(members, c.nickname)
 		}
 	}
-	r.sendResponse(q.who, ChatRspTypeListNames, fmt.Sprint(members))
+	r.sendResponse(q.Who, ChatRspTypeListNames, fmt.Sprint(members))
 }
 
 // join adds the chatter to the room and notifies the group of the new chatters arrival.
 func (r *ChatRoom) join(q *ChatRequest) {
-	_, ok := r.chatters[q.who]
+	_, ok := r.chatters[q.Who]
 	if ok {
-		r.sendResponse(q.who, ChatRspTypeErrAlreadyJoined,
+		r.sendResponse(q.Who, ChatRspTypeErrAlreadyJoined,
 			fmt.Sprintf(`You are already a member of room "%s".`, r.name))
 		return
 	}
-	if q.who.nickname == "" {
-		r.sendResponse(q.who, ChatRspTypeErrNicknameMandatory,
+	if q.Who.nickname == "" {
+		r.sendResponse(q.Who, ChatRspTypeErrNicknameMandatory,
 			fmt.Sprintf(`A nickname is mandatory to be a member of room "%s".`, r.name))
 		return
 	}
-	r.sendResponseAll(ChatRspTypeJoin, fmt.Sprintf("%s has joined the room.", q.who.nickname))
+	r.sendResponseAll(ChatRspTypeJoin, fmt.Sprintf("%s has joined the room.", q.Who.nickname))
 }
 
 // hide hides/unhides a nickname from the user list
 func (r *ChatRoom) hide(q *ChatRequest) {
-	_, ok := r.chatters[q.who]
+	_, ok := r.chatters[q.Who]
 	if !ok {
-		r.sendResponse(q.who, ChatRspTypeErrNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
+		r.sendResponse(q.Who, ChatRspTypeErrNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
 		return
 	}
-	r.chatters[q.who] = !r.chatters[q.who]
+	r.chatters[q.Who] = !r.chatters[q.Who]
 	htxt := "unhidden"
 	t := ChatRspTypeUnhidden
-	if r.chatters[q.who] {
+	if r.chatters[q.Who] {
 		htxt = "hidden"
 		t = ChatRspTypeHidden
 	}
-	r.sendResponse(q.who, t, fmt.Sprintf(`You are now %s in room "%s"`, htxt, r.name))
+	r.sendResponse(q.Who, t, fmt.Sprintf(`You are now %s in room "%s"`, htxt, r.name))
 }
 
 // message sends a message from a chatter to everyone in the room.
 func (r *ChatRoom) message(q *ChatRequest) {
-	_, ok := r.chatters[q.who]
+	_, ok := r.chatters[q.Who]
 	if !ok {
-		r.sendResponse(q.who, ChatRspTypeErrNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
+		r.sendResponse(q.Who, ChatRspTypeErrNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
 		return
 	}
-	r.sendResponseAll(ChatRspTypeMessage, fmt.Sprintf("%s: %s", q.who.nickname, q.content))
+	r.sendResponseAll(ChatRspTypeMessage, fmt.Sprintf("%s: %s", q.Who.nickname, q.Content))
 }
 
 // leave removes the chatter from the room and notifies the group the chatter has left.
 func (r *ChatRoom) leave(q *ChatRequest) {
-	_, ok := r.chatters[q.who]
+	_, ok := r.chatters[q.Who]
 	if !ok {
-		r.sendResponse(q.who, ChatRspTypeErrNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
+		r.sendResponse(q.Who, ChatRspTypeErrNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
 		return
 	}
-	name := q.who.nickname
-	delete(r.chatters, q.who)
-	r.sendResponse(q.who, ChatRspTypeLeave, fmt.Sprintf(`You have left room "%s".`, r.name))
+	name := q.Who.nickname
+	delete(r.chatters, q.Who)
+	r.sendResponse(q.Who, ChatRspTypeLeave, fmt.Sprintf(`You have left room "%s".`, r.name))
 	r.sendResponseAll(ChatRspTypeLeave, fmt.Sprintf("%s has left the room.", name))
 }
 

@@ -75,8 +75,8 @@ func (c *Chatter) receive() {
 		}
 		c.lastReq = time.Now()
 		c.reqCount++
-		c.srvr.log.LogSession("received", remoteAddr, fmt.Sprint(req))
-		switch req.reqType {
+		c.srvr.log.LogSession("received", remoteAddr, fmt.Sprintf("%s", &req))
+		switch req.ReqType {
 		case ChatReqTypeSetNickname:
 			c.setNickname(&req)
 		case ChatReqTypeGetNickname:
@@ -84,7 +84,7 @@ func (c *Chatter) receive() {
 		case ChatReqTypeListRooms:
 			c.listRooms()
 		default: // let room handle the request or give error if no room name provided.
-			req.who = c
+			req.Who = c
 			c.sendRequestToRoom(&req)
 		}
 	}
@@ -136,11 +136,11 @@ func (c *Chatter) shutDown() {
 
 // setNickname sets the nickname for the chatter.
 func (c *Chatter) setNickname(r *ChatRequest) {
-	if r.content == "" {
+	if r.Content == "" {
 		c.sendResponse(ChatRspTypeErrNicknameMandatory, "Nickname cannot be blank.")
 		return
 	}
-	c.nickname = r.content
+	c.nickname = r.Content
 	c.sendResponse(ChatRspTypeSetNickname, fmt.Sprintf(`Nickname set to "%s".`, c.nickname))
 }
 
@@ -156,11 +156,11 @@ func (c *Chatter) listRooms() {
 
 // sendRequestToRoom sends the request to a room or creates a mew room to receive the request.
 func (c *Chatter) sendRequestToRoom(r *ChatRequest) {
-	if r.roomName == "" {
+	if r.RoomName == "" {
 		c.sendResponse(ChatRspTypeErrRoomIsMandatory, "Room name is mandatory to join a room.")
 		return
 	}
-	m, err := c.srvr.roomMngr.createOrFind(r.roomName)
+	m, err := c.srvr.roomMngr.createOrFind(r.RoomName)
 	if err != nil {
 		c.sendResponse(ChatRspTypeErrMaxRoomsReached, err.Error())
 		return
