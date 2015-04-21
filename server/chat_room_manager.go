@@ -24,25 +24,34 @@ func ChatRoomManagerNew(x int, cl *ChatLogger) *ChatRoomManager {
 }
 
 // list returns a list of chat room names.
-func (m *ChatRoomManager) list() string {
+func (m *ChatRoomManager) list() []string {
 	var names []string
 	for n := range m.rooms {
 		names = append(names, n)
 	}
-	return fmt.Sprint(names)
+	return names
 }
 
-// createOrFind returns a new chat room for a given name or returns one already created.
-func (m *ChatRoomManager) createOrFind(n string) (*ChatRoom, error) {
+// find will find a chat room for a given name.
+func (m *ChatRoomManager) find(n string) (*ChatRoom, error) {
 	r, ok := m.rooms[n]
 	if !ok {
+		return nil, errors.New(fmt.Sprintf(`Chatroom "%s" not found.`, n))
+	}
+	return r, nil
+}
+
+// findCreate returns a chat room for a given name or create a new one.
+func (m *ChatRoomManager) findCreate(n string) (*ChatRoom, error) {
+	r, err := m.find(n)
+	if err != nil {
 		if m.maxRooms > 0 && m.maxRooms == len(m.rooms) {
 			return nil, errors.New("Maximum number of rooms reached. Cannot create new room.")
 		}
 		r = ChatRoomNew(n, m.log, &m.wg)
+		m.rooms[n] = r
 		m.wg.Add(1)
 		go r.Run()
-		m.rooms[n] = r
 	}
 	return r, nil
 }
@@ -62,6 +71,9 @@ func (m *ChatRoomManager) shutDownRooms() {
 func (m *ChatRoomManager) removeChatterAllRooms(c *Chatter) {
 	// Close the channel which signals a stop run
 	for _, cr := range m.rooms {
-		cr.reqq <- ChatRequestNew(c, cr.name, ChatReqTypeLeave, "")
+		r, err := ChatRequestNew(c, cr.name, ChatReqTypeLeave, "")
+		if err == nil {
+			cr.reqq <- r
+		}
 	}
 }

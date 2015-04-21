@@ -36,7 +36,7 @@ func ChatRoomNew(n string, cl *ChatLogger, g *sync.WaitGroup) *ChatRoom {
 	}
 }
 
-// Run is the main routine that is evoked in background to accept commands to the room
+// Run is the main routine that is evoked in background to accept commands to the room.
 func (r *ChatRoom) Run() {
 	defer r.wg.Done()
 	r.start = time.Now()
@@ -61,7 +61,7 @@ func (r *ChatRoom) Run() {
 				r.leave(req)
 			default:
 				r.sendResponse(req.Who, ChatRspTypeErrUnknownReq,
-					fmt.Sprintf(`Unknown request sent to room "%s".`, r.name))
+					fmt.Sprintf(`Unknown request sent to room "%s".`, r.name), nil)
 			}
 		default:
 			time.Sleep(maxChatRoomSleep)
@@ -69,38 +69,43 @@ func (r *ChatRoom) Run() {
 	}
 }
 
-// listNames sends a response to the user with a list of all nicknames in the room.
-func (r *ChatRoom) listNames(q *ChatRequest) {
-	var members []string
-	for c, hidden := range r.chatters {
-		if !hidden { // don't return hidden names.
-			members = append(members, c.nickname)
-		}
-	}
-	r.sendResponse(q.Who, ChatRspTypeListNames, fmt.Sprint(members))
-}
-
 // join adds the chatter to the room and notifies the group of the new chatters arrival.
 func (r *ChatRoom) join(q *ChatRequest) {
-	_, ok := r.chatters[q.Who]
-	if ok {
-		r.sendResponse(q.Who, ChatRspTypeErrAlreadyJoined,
-			fmt.Sprintf(`You are already a member of room "%s".`, r.name))
-		return
-	}
 	if q.Who.nickname == "" {
 		r.sendResponse(q.Who, ChatRspTypeErrNicknameMandatory,
-			fmt.Sprintf(`A nickname is mandatory to be a member of room "%s".`, r.name))
+			fmt.Sprintf(`A nickname is mandatory to be a member of room "%s".`, r.name), nil)
 		return
 	}
-	r.sendResponseAll(ChatRspTypeJoin, fmt.Sprintf("%s has joined the room.", q.Who.nickname))
+	if r.isMember(q.Who) {
+		r.sendResponse(q.Who, ChatRspTypeErrAlreadyJoined,
+			fmt.Sprintf(`You are already a member of room "%s".`, r.name), nil)
+		return
+	}
+	if r.isMemberName(q.Who.nickname) {
+		r.sendResponse(q.Who, ChatRspTypeErrNicknameUsed,
+			fmt.Sprintf(` Nickname"%s" is already in use.`, q.Who.nickname, r.name), nil)
+		return
+	}
+
+	r.chatters[q.Who] = false
+	r.log.Infof("sendResponseAll")
+	r.sendResponseAll(ChatRspTypeJoin, fmt.Sprintf("%s has joined the room.", q.Who.nickname), nil)
+}
+
+// listNames sends a response to the user with a list of all nicknames in the room.
+func (r *ChatRoom) listNames(q *ChatRequest) {
+	var names []string
+	for c, hidden := range r.chatters {
+		if !hidden { // don't return hidden names.
+			names = append(names, c.nickname)
+		}
+	}
+	r.sendResponse(q.Who, ChatRspTypeListNames, "", names)
 }
 
 // hide hides/unhides a nickname from the user list
 func (r *ChatRoom) hide(q *ChatRequest) {
-	_, ok := r.chatters[q.Who]
-	if !ok {
-		r.sendResponse(q.Who, ChatRspTypeErrNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
+	if !r.isMemberMandatory(q.Who) {
 		return
 	}
 	r.chatters[q.Who] = !r.chatters[q.Who]
@@ -110,54 +115,82 @@ func (r *ChatRoom) hide(q *ChatRequest) {
 		htxt = "hidden"
 		t = ChatRspTypeHidden
 	}
-	r.sendResponse(q.Who, t, fmt.Sprintf(`You are now %s in room "%s"`, htxt, r.name))
+	r.sendResponse(q.Who, t, fmt.Sprintf(`You are now %s in room "%s"`, htxt, r.name), nil)
 }
 
 // message sends a message from a chatter to everyone in the room.
 func (r *ChatRoom) message(q *ChatRequest) {
-	_, ok := r.chatters[q.Who]
-	if !ok {
-		r.sendResponse(q.Who, ChatRspTypeErrNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
+	if !r.isMemberMandatory(q.Who) {
 		return
 	}
-	r.sendResponseAll(ChatRspTypeMessage, fmt.Sprintf("%s: %s", q.Who.nickname, q.Content))
+	r.sendResponseAll(ChatRspTypeMessage, fmt.Sprintf("%s: %s", q.Who.nickname, q.Content), nil)
 }
 
 // leave removes the chatter from the room and notifies the group the chatter has left.
 func (r *ChatRoom) leave(q *ChatRequest) {
-	_, ok := r.chatters[q.Who]
-	if !ok {
-		r.sendResponse(q.Who, ChatRspTypeErrNotInRoom, fmt.Sprintf(`You are not a member of room "%s".`, r.name))
+	if !r.isMemberMandatory(q.Who) {
 		return
 	}
 	name := q.Who.nickname
 	delete(r.chatters, q.Who)
-	r.sendResponse(q.Who, ChatRspTypeLeave, fmt.Sprintf(`You have left room "%s".`, r.name))
-	r.sendResponseAll(ChatRspTypeLeave, fmt.Sprintf("%s has left the room.", name))
+	r.sendResponse(q.Who, ChatRspTypeLeave, fmt.Sprintf(`You have left room "%s".`, r.name), nil)
+	r.sendResponseAll(ChatRspTypeLeave, fmt.Sprintf("%s has left the room.", name), nil)
+}
+
+// isMember validates if the member exists in the room.
+func (r *ChatRoom) isMember(c *Chatter) bool {
+	_, ok := r.chatters[c]
+	return ok
+}
+
+// isMemberName validates if a member is using a nickname in the room.
+func (r *ChatRoom) isMemberName(n string) bool {
+	for c := range r.chatters {
+		if c.nickname == n {
+			return true
+		}
+	}
+	return false
+}
+
+// isMemberMandatory validates if the member exists in the room, and if not returns a response.
+func (r *ChatRoom) isMemberMandatory(c *Chatter) bool {
+	if !r.isMember(c) {
+		r.sendResponse(c, ChatRspTypeErrNotInRoom,
+			fmt.Sprintf(`You are not a member of room "%s".`, r.name), nil)
+		return false
+	}
+	return true
 }
 
 // sendResponse sends a message to a single chatter in the room.
-func (r *ChatRoom) sendResponse(c *Chatter, rt int, content string) {
-	c.mu.Lock()
+func (r *ChatRoom) sendResponse(c *Chatter, rt int, ct string, l []string) {
 	if c.rspq != nil {
-		r.lastRsp = time.Now()
-		r.rspCount++
-		c.rspq <- ChatResponseNew(r.name, rt, content)
-	}
-	c.mu.Unlock()
-}
-
-// sendResponseAll sends a message to all chatters in the room.
-func (r *ChatRoom) sendResponseAll(rt int, content string) {
-
-	rsp := ChatResponseNew(r.name, rt, content)
-	for c := range r.chatters {
-		c.mu.Lock()
-		if c.rspq != nil {
+		if l == nil {
+			l = []string{}
+		}
+		rsp, err := ChatResponseNew(r.name, rt, ct, l)
+		if err == nil {
 			r.lastRsp = time.Now()
 			r.rspCount++
 			c.rspq <- rsp
 		}
-		c.mu.Unlock()
+	}
+}
+
+// sendResponseAll sends a message to all chatters in the room.
+func (r *ChatRoom) sendResponseAll(rt int, ct string, l []string) {
+	if l == nil {
+		l = []string{}
+	}
+	rsp, err := ChatResponseNew(r.name, rt, ct, l)
+	if err == nil {
+		for c := range r.chatters {
+			if c.rspq != nil {
+				r.lastRsp = time.Now()
+				r.rspCount++
+				c.rspq <- rsp
+			}
+		}
 	}
 }

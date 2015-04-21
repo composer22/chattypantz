@@ -1,13 +1,16 @@
 package server
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 const (
-	ChatReqTypeSetNickname = iota
+	ChatReqTypeSetNickname = 101 + iota
 	ChatReqTypeGetNickname
 	ChatReqTypeListRooms
-	ChatReqTypeListNames
 	ChatReqTypeJoin
+	ChatReqTypeListNames
 	ChatReqTypeHide
 	ChatReqTypeMsg
 	ChatReqTypeLeave
@@ -22,13 +25,16 @@ type ChatRequest struct {
 }
 
 // ChatMessageNew is a factory method that returns a new chat room message instance.
-func ChatRequestNew(c *Chatter, m string, ct int, n string) *ChatRequest {
+func ChatRequestNew(c *Chatter, m string, rt int, n string) (*ChatRequest, error) {
+	if rt < ChatReqTypeSetNickname || rt > ChatReqTypeLeave {
+		return nil, errors.New("Request Type is out of range.")
+	}
 	return &ChatRequest{
 		Who:      c,
 		RoomName: m,
-		ReqType:  ct,
+		ReqType:  rt,
 		Content:  n,
-	}
+	}, nil
 }
 
 // String is an implentation of the Stringer interface so the structure is returned as a

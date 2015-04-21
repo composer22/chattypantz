@@ -11,11 +11,13 @@ import (
 )
 
 var (
-	maxChatterRsp   = 1000                   // The maximum number of responses in the response channel.
+	maxChatterRsp   = 1000                   // The max number of responses in the response channel.
 	maxChatterSleep = 100 * time.Millisecond // How long to sleep between chan peeks.
 )
 
 // Chatter is a wrapper around a connection that represents one chat client on the server.
+// It is a parasitic class in that it lives and dies within the context of the server and is trusted
+// to use and modify server atttributes directly.
 type Chatter struct {
 	srvr     *Server            // The server this chatter is connected to.
 	ws       *websocket.Conn    // The socket to the remote client.
@@ -42,9 +44,9 @@ func ChatterNew(s *Server, c *websocket.Conn) *Chatter {
 // Run starts the event loop that manages the sending and receiving of information to the client.
 func (c *Chatter) Run() {
 	c.start = time.Now()
-	c.srvr.wg.Add(1) // We let the big boss also perform waits for chatters,
+	c.srvr.wg.Add(1) // We let the big boss also perform waits for chatters, so it can close down,
 	c.wg.Add(1)      //   but we also have our own.
-	go c.send()      // Spawn responses in the background to the client.
+	go c.send()      // Spawn response handling to the client in the background.
 	c.receive()      // Then wait on incoming requests.
 }
 
@@ -52,7 +54,7 @@ func (c *Chatter) Run() {
 func (c *Chatter) receive() {
 	remoteAddr := fmt.Sprint(c.ws.Request().RemoteAddr)
 	for {
-		// Set optional idle timeout.
+		// Set optional idle timeout on the receive.
 		if c.srvr.info.MaxIdle > 0 {
 			c.ws.SetReadDeadline(time.Now().Add(time.Duration(c.srvr.info.MaxIdle) * time.Second))
 		}
@@ -66,15 +68,17 @@ func (c *Chatter) receive() {
 			case err.Error() == "EOF":
 				c.srvr.log.LogSession("disconnected", remoteAddr, "Client disconnected.")
 				c.shutDown()
-			case strings.Contains(err.Error(), "use of closed network connection"):
+			case strings.Contains(err.Error(), "use of closed network connection"): // cntl-c safelty.
 				c.shutDown()
 			default:
 				c.srvr.log.LogError(remoteAddr, fmt.Sprintf("Couldn't receive. Error: %s", err.Error()))
 			}
 			return
 		}
+		c.mu.Lock()
 		c.lastReq = time.Now()
 		c.reqCount++
+		c.mu.Unlock()
 		c.srvr.log.LogSession("received", remoteAddr, fmt.Sprintf("%s", &req))
 		switch req.ReqType {
 		case ChatReqTypeSetNickname:
@@ -83,7 +87,7 @@ func (c *Chatter) receive() {
 			c.getNickname()
 		case ChatReqTypeListRooms:
 			c.listRooms()
-		default: // let room handle the request or give error if no room name provided.
+		default: // let room handle other requests or send error if no room name provided.
 			req.Who = c
 			c.sendRequestToRoom(&req)
 		}
@@ -106,8 +110,10 @@ func (c *Chatter) send() {
 				c.ws.Close() // Break the receive() looper and force a chatter shutdown.
 				return
 			}
+			c.mu.Lock()
 			c.lastRsp = time.Now()
 			c.rspCount++
+			c.mu.Unlock()
 			c.srvr.log.LogSession("sent", remoteAddr, fmt.Sprintf("%s", rsp))
 			if err := websocket.JSON.Send(c.ws, rsp); err != nil {
 				switch {
@@ -126,10 +132,10 @@ func (c *Chatter) send() {
 
 // shutDown removes the chatter from any rooms, and shuts down sending/receiving.
 func (c *Chatter) shutDown() {
-	// Clear out of all rooms and stop response signalling.
 	c.srvr.roomMngr.removeChatterAllRooms(c)
 	c.mu.Lock()
 	close(c.rspq) // Signal to send() to stop.
+	c.rspq = nil
 	c.mu.Unlock()
 	c.wg.Wait()
 }
@@ -137,42 +143,48 @@ func (c *Chatter) shutDown() {
 // setNickname sets the nickname for the chatter.
 func (c *Chatter) setNickname(r *ChatRequest) {
 	if r.Content == "" {
-		c.sendResponse(ChatRspTypeErrNicknameMandatory, "Nickname cannot be blank.")
+		c.sendResponse(ChatRspTypeErrNicknameMandatory, "Nickname cannot be blank.", nil)
 		return
 	}
 	c.nickname = r.Content
-	c.sendResponse(ChatRspTypeSetNickname, fmt.Sprintf(`Nickname set to "%s".`, c.nickname))
+	c.sendResponse(ChatRspTypeSetNickname, fmt.Sprintf(`Nickname set to "%s".`, c.nickname), nil)
 }
 
 // nickname returns the nickname for the chatter.
 func (c *Chatter) getNickname() {
-	c.sendResponse(ChatRspTypeNickname, c.nickname)
+	c.sendResponse(ChatRspTypeGetNickname, c.nickname, nil)
 }
 
 // listRooms returns a list of chat rooms to the chatter.
 func (c *Chatter) listRooms() {
-	c.sendResponse(ChatRspTypeListRooms, c.srvr.roomMngr.list())
+	c.sendResponse(ChatRspTypeListRooms, "", c.srvr.roomMngr.list())
 }
 
 // sendRequestToRoom sends the request to a room or creates a mew room to receive the request.
 func (c *Chatter) sendRequestToRoom(r *ChatRequest) {
 	if r.RoomName == "" {
-		c.sendResponse(ChatRspTypeErrRoomIsMandatory, "Room name is mandatory to join a room.")
+		c.sendResponse(ChatRspTypeErrRoomMandatory, "Room name is mandatory to access a room.", nil)
 		return
 	}
-	m, err := c.srvr.roomMngr.createOrFind(r.RoomName)
+	m, err := c.srvr.roomMngr.findCreate(r.RoomName)
 	if err != nil {
-		c.sendResponse(ChatRspTypeErrMaxRoomsReached, err.Error())
+		c.sendResponse(ChatRspTypeErrMaxRoomsReached, err.Error(), nil)
 		return
 	}
 	m.reqq <- r
 }
 
 // sendResponse sends a message to a chatter.
-func (c *Chatter) sendResponse(rt int, msg string) {
+func (c *Chatter) sendResponse(rt int, msg string, l []string) {
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.rspq != nil {
-		c.rspq <- ChatResponseNew("", rt, msg)
+		if l == nil {
+			l = []string{}
+		}
+		rsp, err := ChatResponseNew("", rt, msg, l)
+		if err == nil {
+			c.rspq <- rsp
+		}
 	}
-	c.mu.Unlock()
 }
