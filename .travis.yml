@@ -13,8 +13,10 @@ branches:
     - master
 
 install:
-  - go get golang.org/x/tools/cmd/vet
+  - go get golang.org/x/net/netutil
+  - go get golang.org/x/net/websocket
   - go get golang.org/x/tools/cmd/cover
+  - go get golang.org/x/tools/cmd/vet
   - go get github.com/mattn/goveralls
 
 script:
