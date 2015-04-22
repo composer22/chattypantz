@@ -11,9 +11,9 @@ const (
 	ChatRspTypeListRooms
 	ChatRspTypeJoin
 	ChatRspTypeListNames
-	ChatRspTypeHidden
-	ChatRspTypeUnhidden
-	ChatRspTypeMessage
+	ChatRspTypeHide
+	ChatRspTypeUnhide
+	ChatRspTypeMsg
 	ChatRspTypeLeave
 )
 
@@ -23,6 +23,7 @@ const (
 	ChatRspTypeErrNicknameMandatory
 	ChatRspTypeErrAlreadyJoined
 	ChatRspTypeErrNicknameUsed
+	ChatRspTypeErrHiddenNickname
 	ChatRspTypeErrNotInRoom
 	ChatRspTypeErrUnknownReq
 )

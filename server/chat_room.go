@@ -22,6 +22,7 @@ type ChatRoom struct {
 	rspCount int64             // Total responses sent.
 	reqq     chan *ChatRequest // Channel to receive requests.
 	log      *ChatLogger       // Application log for events.
+	mu       sync.Mutex        // Lock against stats.
 	wg       *sync.WaitGroup   // Wait group for the run from the chat room manager.
 }
 
@@ -46,8 +47,10 @@ func (r *ChatRoom) Run() {
 			if !ok { // Assume ch closed and shutdown notification
 				return
 			}
+			r.mu.Lock()
 			r.lastReq = time.Now()
 			r.reqCount++
+			r.mu.Unlock()
 			switch req.ReqType {
 			case ChatReqTypeListNames:
 				r.listNames(req)
@@ -55,6 +58,8 @@ func (r *ChatRoom) Run() {
 				r.join(req)
 			case ChatReqTypeHide:
 				r.hide(req)
+			case ChatReqTypeUnhide:
+				r.unhide(req)
 			case ChatReqTypeMsg:
 				r.message(req)
 			case ChatReqTypeLeave:
@@ -71,25 +76,24 @@ func (r *ChatRoom) Run() {
 
 // join adds the chatter to the room and notifies the group of the new chatters arrival.
 func (r *ChatRoom) join(q *ChatRequest) {
-	if q.Who.nickname == "" {
+	switch {
+	case q.Who.nickname == "":
 		r.sendResponse(q.Who, ChatRspTypeErrNicknameMandatory,
 			fmt.Sprintf(`A nickname is mandatory to be a member of room "%s".`, r.name), nil)
-		return
-	}
-	if r.isMember(q.Who) {
+	case r.isMember(q.Who):
 		r.sendResponse(q.Who, ChatRspTypeErrAlreadyJoined,
 			fmt.Sprintf(`You are already a member of room "%s".`, r.name), nil)
-		return
-	}
-	if r.isMemberName(q.Who.nickname) {
+	case r.isMemberName(q.Who.nickname):
 		r.sendResponse(q.Who, ChatRspTypeErrNicknameUsed,
-			fmt.Sprintf(` Nickname"%s" is already in use.`, q.Who.nickname, r.name), nil)
-		return
+			fmt.Sprintf(`Nickname "%s" is already in use in room "%s".`, q.Who.nickname, r.name), nil)
+	default:
+		r.chatters[q.Who] = false
+		if q.Content == "hidden" {
+			r.chatters[q.Who] = true
+		}
+		r.log.Infof("sendResponseAll")
+		r.sendResponseAll(ChatRspTypeJoin, fmt.Sprintf("%s has joined the room.", q.Who.nickname), nil)
 	}
-
-	r.chatters[q.Who] = false
-	r.log.Infof("sendResponseAll")
-	r.sendResponseAll(ChatRspTypeJoin, fmt.Sprintf("%s has joined the room.", q.Who.nickname), nil)
 }
 
 // listNames sends a response to the user with a list of all nicknames in the room.
@@ -103,27 +107,34 @@ func (r *ChatRoom) listNames(q *ChatRequest) {
 	r.sendResponse(q.Who, ChatRspTypeListNames, "", names)
 }
 
-// hide hides/unhides a nickname from the user list
+// hide visually makes a nickname inactive in the user list
 func (r *ChatRoom) hide(q *ChatRequest) {
 	if !r.isMemberMandatory(q.Who) {
 		return
 	}
-	r.chatters[q.Who] = !r.chatters[q.Who]
-	htxt := "unhidden"
-	t := ChatRspTypeUnhidden
-	if r.chatters[q.Who] {
-		htxt = "hidden"
-		t = ChatRspTypeHidden
+	r.chatters[q.Who] = true
+	r.sendResponse(q.Who, ChatRspTypeHide, fmt.Sprintf(`You are now hidden in room "%s".`, r.name), nil)
+}
+
+// unhide visually makes a nickname active in the user list
+func (r *ChatRoom) unhide(q *ChatRequest) {
+	if !r.isMemberMandatory(q.Who) {
+		return
 	}
-	r.sendResponse(q.Who, t, fmt.Sprintf(`You are now %s in room "%s"`, htxt, r.name), nil)
+	r.chatters[q.Who] = false
+	r.sendResponse(q.Who, ChatRspTypeUnhide, fmt.Sprintf(`You are now unhidden in room "%s".`, r.name), nil)
 }
 
 // message sends a message from a chatter to everyone in the room.
 func (r *ChatRoom) message(q *ChatRequest) {
-	if !r.isMemberMandatory(q.Who) {
-		return
+	switch {
+	case !r.isMemberMandatory(q.Who):
+	case r.chatters[q.Who] == true:
+		r.sendResponse(q.Who, ChatRspTypeErrHiddenNickname,
+			fmt.Sprintf(`Nickname "%s" is hidden. Cannot post in room "%s".`, q.Who.nickname, r.name), nil)
+	default:
+		r.sendResponseAll(ChatRspTypeMsg, fmt.Sprintf("%s: %s", q.Who.nickname, q.Content), nil)
 	}
-	r.sendResponseAll(ChatRspTypeMessage, fmt.Sprintf("%s: %s", q.Who.nickname, q.Content), nil)
 }
 
 // leave removes the chatter from the room and notifies the group the chatter has left.
@@ -135,6 +146,28 @@ func (r *ChatRoom) leave(q *ChatRequest) {
 	delete(r.chatters, q.Who)
 	r.sendResponse(q.Who, ChatRspTypeLeave, fmt.Sprintf(`You have left room "%s".`, r.name), nil)
 	r.sendResponseAll(ChatRspTypeLeave, fmt.Sprintf("%s has left the room.", name), nil)
+}
+
+// ChatRoomStats is a simple structure for returning statistic information on the room.
+type ChatRoomStats struct {
+	Start    time.Time `json:"start"`    // The start time of the room.
+	LastReq  time.Time `json:"lastReq"`  // The last request time to the room.
+	LastRsp  time.Time `json:"lastRsp"`  // The last response time from the room.
+	ReqCount int64     `json:"reqcount"` // Total requests received.
+	RspCount int64     `json:"rspCount"` // Total responses sent.
+}
+
+// stats returns status information on the room.
+func (r *ChatRoom) stats() *ChatRoomStats {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return &ChatRoomStats{
+		Start:    r.start,
+		LastReq:  r.lastReq,
+		LastRsp:  r.lastRsp,
+		ReqCount: r.reqCount,
+		RspCount: r.rspCount,
+	}
 }
 
 // isMember validates if the member exists in the room.
@@ -171,8 +204,10 @@ func (r *ChatRoom) sendResponse(c *Chatter, rt int, ct string, l []string) {
 		}
 		rsp, err := ChatResponseNew(r.name, rt, ct, l)
 		if err == nil {
+			r.mu.Lock()
 			r.lastRsp = time.Now()
 			r.rspCount++
+			r.mu.Unlock()
 			c.rspq <- rsp
 		}
 	}
@@ -187,8 +222,10 @@ func (r *ChatRoom) sendResponseAll(rt int, ct string, l []string) {
 	if err == nil {
 		for c := range r.chatters {
 			if c.rspq != nil {
+				r.mu.Lock()
 				r.lastRsp = time.Now()
 				r.rspCount++
+				r.mu.Unlock()
 				c.rspq <- rsp
 			}
 		}

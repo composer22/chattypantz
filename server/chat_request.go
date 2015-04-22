@@ -12,6 +12,7 @@ const (
 	ChatReqTypeJoin
 	ChatReqTypeListNames
 	ChatReqTypeHide
+	ChatReqTypeUnhide
 	ChatReqTypeMsg
 	ChatReqTypeLeave
 )
