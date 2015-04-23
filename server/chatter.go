@@ -19,17 +19,18 @@ var (
 // It is a parasitic class in that it lives and dies within the context of the server and is trusted
 // to use and modify server atttributes directly.
 type Chatter struct {
-	srvr     *Server            // The server this chatter is connected to.
-	ws       *websocket.Conn    // The socket to the remote client.
-	nickname string             // The friendly nickname to display in a conversation.
-	start    time.Time          // The start time of the connection.
-	lastReq  time.Time          // The last request time of the connection.
-	lastRsp  time.Time          // The last response time to the connection.
-	reqCount uint64             // Total requests received.
-	rspCount uint64             // Total responses sent.
-	rspq     chan *ChatResponse // A channel to receive information to send to the remote client.
-	mu       sync.Mutex         // For locking access to chatter attributes.
-	wg       sync.WaitGroup     // Synchronization of channel close.
+	srvr      *Server            // The server this chatter is connected to.
+	ws        *websocket.Conn    // The socket to the remote client.
+	connected bool               // Indicates if the socket is active,
+	nickname  string             // The friendly nickname to display in a conversation.
+	start     time.Time          // The start time of the connection.
+	lastReq   time.Time          // The last request time of the connection.
+	lastRsp   time.Time          // The last response time to the connection.
+	reqCount  uint64             // Total requests received.
+	rspCount  uint64             // Total responses sent.
+	rspq      chan *ChatResponse // A channel to receive information to send to the remote client.
+	mu        sync.Mutex         // For locking access to chatter attributes.
+	wg        sync.WaitGroup     // Synchronization of channel close.
 }
 
 // ChatterNew is a factory function that returns a new Chatter instance
@@ -44,6 +45,7 @@ func ChatterNew(s *Server, c *websocket.Conn) *Chatter {
 // Run starts the event loop that manages the sending and receiving of information to the client.
 func (c *Chatter) Run() {
 	c.start = time.Now()
+	c.connected = true
 	c.srvr.wg.Add(1) // We let the big boss also perform waits for chatters, so it can close down,
 	c.wg.Add(1)      //   but we also have our own.
 	go c.send()      // Spawn response handling to the client in the background.
@@ -133,8 +135,8 @@ func (c *Chatter) send() {
 func (c *Chatter) shutDown() {
 	c.srvr.roomMngr.removeChatterAllRooms(c)
 	c.mu.Lock()
-	close(c.rspq) // Signal to send() to stop.
-	c.rspq = nil
+	c.connected = false
+	close(c.rspq) // signal stop to send()
 	c.mu.Unlock()
 	c.wg.Wait()
 }
