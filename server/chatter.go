@@ -47,13 +47,14 @@ func (c *Chatter) Run() {
 	c.start = time.Now()
 	c.connected = true
 	c.srvr.wg.Add(1) // We let the big boss also perform waits for chatters, so it can close down,
-	c.wg.Add(1)      //   but we also have our own.
+	c.wg.Add(1)      //   but we also have our own in send().
 	go c.send()      // Spawn response handling to the client in the background.
 	c.receive()      // Then wait on incoming requests.
 }
 
 // receive polls and handles any commands or information sent from the remote client.
 func (c *Chatter) receive() {
+	defer c.srvr.wg.Done()
 	remoteAddr := fmt.Sprint(c.ws.Request().RemoteAddr)
 	for {
 		// Set optional idle timeout on the receive.
@@ -98,9 +99,7 @@ func (c *Chatter) receive() {
 
 // send is a go routine used to poll queued messages to send information to the client.
 func (c *Chatter) send() {
-	defer c.srvr.wg.Done()
 	defer c.wg.Done()
-
 	remoteAddr := fmt.Sprint(c.ws.Request().RemoteAddr)
 	for {
 		select {
