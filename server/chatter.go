@@ -198,12 +198,13 @@ func (c *Chatter) sendRequestToRoom(r *ChatRequest) {
 
 // sendResponse sends a message to a chatter.
 func (c *Chatter) sendResponse(rt int, msg string, l []string) {
-	if c.rspq != nil {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.connected {
 		if l == nil {
 			l = []string{}
 		}
-		rsp, err := ChatResponseNew("", rt, msg, l)
-		if err == nil {
+		if rsp, err := ChatResponseNew("", rt, msg, l); err == nil {
 			c.rspq <- rsp
 		}
 	}

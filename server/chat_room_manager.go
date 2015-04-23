@@ -69,9 +69,7 @@ func (m *ChatRoomManager) removeChatterAllRooms(c *Chatter) {
 func (m *ChatRoomManager) shutDownRooms() {
 	// Close the channel which signals a stop run
 	for _, r := range m.rooms {
-		r.mu.Lock()
 		close(r.reqq)
-		r.mu.Unlock()
 	}
 	m.wg.Wait()
 	m.rooms = nil
