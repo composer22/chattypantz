@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -13,8 +14,10 @@ import (
 )
 
 const (
-	testChatLogExpCnt = `{"connected":{"method":"GET","proto":"HTTP/1.1","host":"example.com",` +
-		`"requestURI":"ws://ladeda.com/v1.0/chat","remoteAddr":"127.8.9.10","header":{}}}`
+	testChatLogExpCnt = `{"connected":{"method":"GET","url":{"Scheme":"http","Opaque":"","User":null,` +
+		`"Host":"www.ladeda.com","Path":"","RawQuery":"","Fragment":""},"proto":"HTTP/1.1",` +
+		`"header":{},"host":"ladeda.com","remoteAddr":"127.8.9.10","requestURI":` +
+		`"ws://www.ladeda.com/v1.0/chat"}}`
 	testChatLogExpSess = `{"disconnected":{"remoteAddr":"127.8.9.10","message":"Client disconnected."}}`
 	testChatLogExpErr  = `{"error":{"remoteAddr":"127.8.9.10","message":"Couldn't receive. Error: Tester"}}`
 )
@@ -22,13 +25,15 @@ const (
 func TestLogConnect(t *testing.T) {
 	t.Parallel()
 	testLbl := logger.Labels[logger.Info]
+	u, _ := url.Parse(fmt.Sprint("http://www.ladeda.com"))
 	r := &http.Request{
 		Method:     "GET",
+		URL:        u,
 		Proto:      "HTTP/1.1",
 		Header:     make(map[string][]string),
-		Host:       "example.com",
-		RequestURI: "ws://ladeda.com/v1.0/chat",
+		Host:       "ladeda.com",
 		RemoteAddr: "127.8.9.10",
+		RequestURI: "ws://www.ladeda.com/v1.0/chat",
 	}
 	expectOutput(t, func() {
 		l := ChatLoggerNew()

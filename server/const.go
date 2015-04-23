@@ -13,6 +13,8 @@ const (
 
 	// * zeros = no change or no limitation or not enabled.
 
-	// http: routes.
-	wsRouteV1Conn = "/v1.0/chat"
+	// http and ws routes.
+	wsRouteV1Conn    = "/v1.0/chat"
+	httpRouteV1Alive = "/v1.0/alive"
+	httpRouteV1Stats = "/v1.0/stats"
 )

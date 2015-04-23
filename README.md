@@ -22,9 +22,10 @@ Some key objectives in this demonstration:
 
 Additional objectives:
 
-* Only one connection per nickname allowed per chat room
-* When the server runs out of memory it shouldn't crash and instead start disconnecting clients to release system resources.
-* The server should provide an idle timeout option.  If a user doesn't interact withing n-seconds, the user should be automatically disconnected.
+* Only one connection per nickname allowed per chat room.
+* The server should provide an idle timeout setting.  If a user doesn't interact withing n-seconds, the user should be automatically disconnected.
+* The server should provide a parameter to limit connections and number of rooms.
+* Alive and statistics should be provided by http:// API endpoints.
 * Chat history for each room should be stored in a file for each chat. When the user logs in to a room, the history should be provided to the client. A max history option should be provided.
 
 For TODOs, please see TODO.md
@@ -112,14 +113,41 @@ Spaces must be encoded in JSON calls.
 
 # Send message to the room.
 # ChatReqTypeMsg = 108
-/send {"roomName":"Your\ Room","reqType":107,"content":"Hello world!"}
+/send {"roomName":"Your\ Room","reqType":108,"content":"Hello world!"}
 
 # Leave a room.
 # ChatReqTypeLeave = 109
-/send {"roomName":"Your\ Room","reqType":108}
+/send {"roomName":"Your\ Room","reqType":109}
 
 # Disconnect from the server
 /disconnect
+
+```
+## HTTP API for Alive and Stats
+
+Two additional API routes are provided:
+
+* http://localhost:6660/v1.0/alive - GET: Is the server alive?
+* http://localhost:6660/v1.0/status - GET: Returns information about the server state.
+
+Header should ideally contain:
+
+* Accept: application/json
+* Content-Type: application/json
+
+Example cURL:
+
+```
+$ curl -i -H "Accept: application/json" \
+-H "Content-Type: application/json" \
+-X GET "http://0.0.0.0:6660/v1.0/alive"
+
+HTTP/1.1 200 OK
+Content-Type: application/json;charset=utf-8
+Date: Fri, 03 Apr 2015 17:29:17 +0000
+Server: San Francisco
+X-Request-Id: DC8D9C2E-8161-4FC0-937F-4CA7037970D5
+Content-Length: 0
 
 ```
 

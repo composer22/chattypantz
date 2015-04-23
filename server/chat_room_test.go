@@ -27,6 +27,11 @@ func TestChatRoomHide(t *testing.T) {
 	t.Skip("Covered by server test.")
 }
 
+func TestChatRoomUnhide(t *testing.T) {
+	t.Parallel()
+	t.Skip("Covered by server test.")
+}
+
 func TestChatRoomMessage(t *testing.T) {
 	t.Parallel()
 	t.Skip("Covered by server test.")
@@ -52,10 +57,6 @@ func TestChatRoomIsMemberName(t *testing.T) {
 	t.Skip("Covered by server test.")
 }
 
-func TestChatRoomIsMemberMandatory(t *testing.T) {
-	t.Parallel()
-	t.Skip("Covered by server test.")
-}
 func TestChatRoomSendResponse(t *testing.T) {
 	t.Parallel()
 	t.Skip("Covered by server test.")

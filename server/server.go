@@ -2,12 +2,14 @@
 package server
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"sync"
 	"time"
 
@@ -23,7 +25,7 @@ import (
 type Server struct {
 	info     *Info            // Basic server information used to run the server.
 	opts     *Options         // Original options used to create the server.
-	stats    *Status          // Server statistics since it started.
+	stats    *Stats           // Server statistics since it started.
 	mu       sync.Mutex       // For locking access to server attributes.
 	running  bool             // Is the server running?
 	log      *ChatLogger      // Log instance for recording error and other messages.
@@ -48,7 +50,7 @@ func New(ops *Options) *Server {
 			i.Debug = ops.Debug
 		}),
 		opts:    ops,
-		stats:   StatusNew(),
+		stats:   StatsNew(),
 		log:     ChatLoggerNew(),
 		running: false,
 	}
@@ -57,8 +59,10 @@ func New(ops *Options) *Server {
 		s.log.SetLogLevel(logger.Debug)
 	}
 
-	// Setup the mutext, routes, middleware, and server.
+	// Setup the routes.
 	http.Handle(wsRouteV1Conn, websocket.Handler(s.chatHandler))
+	http.HandleFunc(httpRouteV1Alive, s.aliveHandler)
+	http.HandleFunc(httpRouteV1Stats, s.statsHandler)
 	s.srvr = &http.Server{
 		Addr: fmt.Sprintf("%s:%d", s.info.Hostname, s.info.Port),
 	}
@@ -163,8 +167,60 @@ func (s *Server) handleSignals() {
 // chatHandler is the main entry point to handle chat connections to the client.
 func (s *Server) chatHandler(ws *websocket.Conn) {
 	s.log.LogConnect(ws.Request())
+	s.incrementStats(ws.Request())
 	c := ChatterNew(s, ws)
 	c.Run()
+}
+
+// aliveHandler handles a client http:// "is the server alive?" request.
+func (s *Server) aliveHandler(w http.ResponseWriter, r *http.Request) {
+	s.log.LogConnect(r)
+	s.incrementStats(r)
+	s.initResponseHeader(w)
+}
+
+// statsHandler handles a client request for server information and statistics.
+func (s *Server) statsHandler(w http.ResponseWriter, r *http.Request) {
+	s.log.LogConnect(r)
+	s.incrementStats(r)
+	s.initResponseHeader(w)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.stats.RoomStats = s.roomMngr.getRoomStats()
+	mStats := &runtime.MemStats{}
+	runtime.ReadMemStats(mStats)
+	b, _ := json.Marshal(
+		&struct {
+			Info    *Info             `json:"info"`
+			Options *Options          `json:"options"`
+			Stats   *Stats            `json:"stats"`
+			Memory  *runtime.MemStats `json:"memStats"`
+		}{
+			Info:    s.info,
+			Options: s.opts,
+			Stats:   s.stats,
+			Memory:  mStats,
+		})
+	w.Write(b)
+}
+
+// initResponseHeader sets up the common http response headers for the return of all json calls.
+func (s *Server) initResponseHeader(w http.ResponseWriter) {
+	h := w.Header()
+	h.Add("Content-Type", "application/json;charset=utf-8")
+	h.Add("Date", time.Now().UTC().Format(time.RFC1123Z))
+	if s.info.Name != "" {
+		h.Add("Server", s.info.Name)
+	}
+	h.Add("X-Request-ID", createV4UUID())
+}
+
+// incrementStats increments the statistics for the request being handled by the server.
+func (s *Server) incrementStats(r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.stats.IncrReqStats(r.ContentLength)
+	s.stats.IncrRouteStats(r.URL.Path, r.ContentLength)
 }
 
 // isRunning returns a boolean representing whether the server is running or not.

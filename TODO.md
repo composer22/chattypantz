@@ -1,8 +1,7 @@
 # OnDeck
-- [ ] Tests.
-- [ ] Debugging.
+- [ ] Server - stats aggregation + API
+- [ ] Server - API for alive
 - [ ] Front end code.
-- [ ] Enable stats.
 - [ ] Enable history in a room and load n records from that log.
 
 # Backlog

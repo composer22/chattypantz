@@ -2,6 +2,8 @@ package server
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"runtime"
 	"testing"
 	"time"
@@ -18,7 +20,7 @@ const (
 	testChatRoomName1    = "Room1"
 	testChatRoomName2    = "Room2"
 	testChatRoomName3    = "Room3"
-	testChatRoomNickname = "ChatMonkey"
+	testChatterNickname  = "ChatMonkey"
 )
 
 var (
@@ -32,22 +34,24 @@ var (
 	testRoomReqs        uint64
 	testRoomRsps        uint64
 
-	testSrvr    *Server
-	testSrvrURL = fmt.Sprintf("ws://%s:%d/v1.0/chat", testServerHostname, testServerPort)
-	testSrvrOrg = fmt.Sprintf("ws://%s/", testServerHostname)
+	testSrvr         *Server
+	testSrvrURL      = fmt.Sprintf("ws://%s:%d/v1.0/chat", testServerHostname, testServerPort)
+	testSrvrURLAlive = fmt.Sprintf("http://%s:%d/v1.0/alive", testServerHostname, testServerPort)
+	testSrvrURLStats = fmt.Sprintf("http://%s:%d/v1.0/stats", testServerHostname, testServerPort)
+	testSrvrOrg      = fmt.Sprintf("ws://%s/", testServerHostname)
 
 	TestServerSetNickname = fmt.Sprintf(`{"reqType":%d,"content":"%s"}`,
-		ChatReqTypeSetNickname, testChatRoomNickname)
+		ChatReqTypeSetNickname, testChatterNickname)
 	TestServerSetNicknameErr = fmt.Sprintf(`{"reqType":%d,"content":""}`,
 		ChatReqTypeSetNickname)
 	TestServerSetNicknameExp = fmt.Sprintf(`{"roomName":"","rspType":%d,"content":"Nickname set to \"%s\".","list":[]}`,
-		ChatRspTypeSetNickname, testChatRoomNickname)
+		ChatRspTypeSetNickname, testChatterNickname)
 	TestServerSetNicknameExpErr = fmt.Sprintf(`{"roomName":"","rspType":%d,"content":"Nickname cannot be blank.","list":[]}`,
 		ChatRspTypeErrNicknameMandatory)
 
 	TestServerGetNickname    = fmt.Sprintf(`{"reqType":%d}`, ChatReqTypeGetNickname)
 	TestServerGetNicknameExp = fmt.Sprintf(`{"roomName":"","rspType":%d,"content":"%s","list":[]}`,
-		ChatRspTypeGetNickname, testChatRoomNickname)
+		ChatRspTypeGetNickname, testChatterNickname)
 
 	TestServerListRooms     = fmt.Sprintf(`{"reqType":%d}`, ChatReqTypeListRooms)
 	TestServerListRoomsExp0 = fmt.Sprintf(`{"roomName":"","rspType":%d,"content":"","list":[]}`,
@@ -61,9 +65,9 @@ var (
 	TestServerJoin2      = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName2, ChatReqTypeJoin)
 	TestServerJoin3      = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName3, ChatReqTypeJoin)
 	TestServerJoinExp    = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
-		`"content":"%s has joined the room.","list":[]}`, testChatRoomName1, ChatRspTypeJoin, testChatRoomNickname)
+		`"content":"%s has joined the room.","list":[]}`, testChatRoomName1, ChatRspTypeJoin, testChatterNickname)
 	TestServerJoinExp2 = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
-		`"content":"%s has joined the room.","list":[]}`, testChatRoomName2, ChatRspTypeJoin, testChatRoomNickname)
+		`"content":"%s has joined the room.","list":[]}`, testChatRoomName2, ChatRspTypeJoin, testChatterNickname)
 	TestServerJoinExpErr = fmt.Sprintf(`{"roomName":"","rspType":%d,`+
 		`"content":"Room name is mandatory to access a room.","list":[]}`, ChatRspTypeErrRoomMandatory)
 	TestServerJoinExpErrX2 = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
@@ -71,7 +75,7 @@ var (
 		ChatRspTypeErrAlreadyJoined, testChatRoomName1)
 	TestServerJoinExpErrSame = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
 		`"content":"Nickname \"%s\" is already in use in room \"%s\".","list":[]}`, testChatRoomName1,
-		ChatRspTypeErrNicknameUsed, testChatRoomNickname, testChatRoomName1)
+		ChatRspTypeErrNicknameUsed, testChatterNickname, testChatRoomName1)
 	TestServerJoinExpErrRoom = fmt.Sprintf(`{"roomName":"","rspType":%d,`+
 		`"content":"Maximum number of rooms reached. Cannot create new room.","list":[]}`,
 		ChatRspTypeErrMaxRoomsReached)
@@ -80,7 +84,7 @@ var (
 	TestServerListNamesExp0 = fmt.Sprintf(`{"roomName":"%s","rspType":%d,"content":"","list":[]}`,
 		testChatRoomName1, ChatRspTypeListNames)
 	TestServerListNamesExp1 = fmt.Sprintf(`{"roomName":"%s","rspType":%d,"content":"","list":["%s"]}`,
-		testChatRoomName1, ChatRspTypeListNames, testChatRoomNickname)
+		testChatRoomName1, ChatRspTypeListNames, testChatterNickname)
 
 	TestServerHideNickname    = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName1, ChatReqTypeHide)
 	TestServerHideNicknameExp = fmt.Sprintf(`{"roomName":"%s","rspType":%d,"content":"You are now hidden in room \"%s\".","list":[]}`,
@@ -93,10 +97,10 @@ var (
 	TestServerMsg = fmt.Sprintf(`{"roomName":"%s","reqType":%d,"content":"Hello you monkeys."}`,
 		testChatRoomName1, ChatReqTypeMsg)
 	TestServerMsgExp = fmt.Sprintf(`{"roomName":"%s","rspType":%d,"content":"%s: Hello you monkeys.","list":[]}`,
-		testChatRoomName1, ChatRspTypeMsg, testChatRoomNickname)
+		testChatRoomName1, ChatRspTypeMsg, testChatterNickname)
 	TestServerMsgExpErrHide = fmt.Sprintf(`{"roomName":"%s","rspType":%d,"content":"Nickname \"%s\" `+
 		`is hidden. Cannot post in room \"%s\".","list":[]}`,
-		testChatRoomName1, ChatRspTypeErrHiddenNickname, testChatRoomNickname, testChatRoomName1)
+		testChatRoomName1, ChatRspTypeErrHiddenNickname, testChatterNickname, testChatRoomName1)
 
 	TestServerLeave    = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName1, ChatReqTypeLeave)
 	TestServerLeaveExp = fmt.Sprintf(`{"roomName":"%s","rspType":%d,"content":"You have left room \"%s\".","list":[]}`,
@@ -481,6 +485,9 @@ func TestServerValidWSSession(t *testing.T) {
 
 	// Validate Chat Room statistics from this session.
 	s := rm.stats()
+	if s.Name != testChatRoomName1 {
+		t.Errorf("Room stats error. Name is incorrect. \nExpected: %s\n\nActual: %s\n", testChatRoomName1, s.Name)
+	}
 	if s.Start.Before(testRoomStartTime) || s.Start.Equal(testRoomStartTime) {
 		t.Errorf("Room stats error. Start Time is out of range.")
 	}
@@ -499,6 +506,12 @@ func TestServerValidWSSession(t *testing.T) {
 
 	// Validate Chatter statistics for this session.
 	cs := ch.stats()
+	if cs.Nickname != testChatterNickname {
+		t.Errorf("Chatter stats error. Nickname not correct.")
+	}
+	if cs.RemoteAddr == "" {
+		t.Errorf("Chatter stats error. RemoteAddr not set.")
+	}
 	if cs.Start.Before(testChatterStartTime) || cs.Start.Equal(testChatterStartTime) {
 		t.Errorf("Chatter stats error. Start Time is out of range.")
 	}
@@ -728,10 +741,69 @@ func TestServerWSErrorSession(t *testing.T) {
 	if result != TestServerJoinExpErrRoom {
 		t.Errorf("Join should have received an error.\nExpected: %s\n\nActual: %s\n", TestServerJoinExpErrRoom, result)
 	}
+
+	// Test Max timeout
+	testSrvr.info.MaxIdle = 3 // Set to 3 seconds
+	// Now, send a command to enable the new MaxIdle
+	if _, err := ws1.Write([]byte(TestServerListRooms)); err != nil {
+		if err != nil {
+			t.Errorf("Websocket send error: %s", err)
+			return
+		}
+	}
+	if n, err = ws1.Read(rsp); err != nil {
+		if err != nil {
+			t.Errorf("Websocket receive error: %s", err)
+			return
+		}
+	}
+	// Sleep 5 seconds and try to send a command again.
+	time.Sleep(5 * time.Second)
+	if _, err := ws1.Write([]byte(TestServerListRooms)); err != nil {
+		if err == nil {
+			t.Errorf("Websocket should have been closed.")
+		}
+	}
+	testSrvr.info.MaxIdle = 0 // Reset
+}
+
+func TestHTTPRoutes(t *testing.T) {
+	client := &http.Client{}
+	rq, _ := http.NewRequest("GET", testSrvrURLAlive, nil)
+	rq.Header.Add("Accept", "application/json")
+	rq.Header.Add("Accept-Encoding", "gzip, deflate")
+	rq.Header.Add("Content-Type", "application/json")
+	r, _ := client.Do(rq)
+	b, _ := ioutil.ReadAll(r.Body)
+	r.Body.Close()
+	body := string(b)
+	if body != "" {
+		t.Errorf("/alive body should be empty.")
+	}
+	if r.StatusCode != http.StatusOK {
+		t.Errorf("/alive returned invalid status code.\nExpected: %d\n\nActual: %d\n", http.StatusOK, r.StatusCode)
+	}
+
+	rq, _ = http.NewRequest("GET", testSrvrURLStats, nil)
+	rq.Header.Add("Accept", "application/json")
+	rq.Header.Add("Accept-Encoding", "gzip, deflate")
+	rq.Header.Add("Content-Type", "application/json")
+	r, _ = client.Do(rq)
+	b, _ = ioutil.ReadAll(r.Body)
+	r.Body.Close()
+	body = string(b)
+	if body == "" {
+		t.Errorf("/status body should not be empty.")
+	}
+	if r.StatusCode != http.StatusOK {
+		t.Errorf("/status returned invalid status code.\nExpected: %d\n\nActual: %d\n", http.StatusOK, r.StatusCode)
+	}
 }
 
 func TestServerTakeDown(t *testing.T) {
+	time.Sleep(1 * time.Second) // allow all connections to leave cleanly from previous test.
 	testSrvr.Shutdown()
+	testSrvr.Shutdown() // Coverage only
 	if testSrvr.isRunning() {
 		t.Errorf("Server should have shut down.")
 	}
