@@ -94,9 +94,10 @@ Spaces must be encoded in JSON calls.
 # ChatReqTypeListRooms = 103
 /send {"reqType":103}
 
-# Join a room or join a room with hidden name.
+# Join a room
 # ChatReqTypeJoin = 104
 /send {"roomName":"Your\ Room","reqType":104}
+# or join a room with hidden name.
 /send {"roomName":"Your\ Room","reqType":104,"content":"hidden"}
 
 # Get a list of nicknames in a room.

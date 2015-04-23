@@ -60,11 +60,12 @@ var (
 		ChatRspTypeListRooms, testChatRoomName1)
 
 	TestServerJoin       = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName1, ChatReqTypeJoin)
-	TestServerJoinHidden = fmt.Sprintf(`{"roomName":"%s","reqType":%d,"content":"hidden"}`, testChatRoomName1, ChatReqTypeJoin)
-	TestServerJoinErr    = fmt.Sprintf(`{"roomName":"","reqType":%d}`, ChatReqTypeJoin)
-	TestServerJoin2      = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName2, ChatReqTypeJoin)
-	TestServerJoin3      = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName3, ChatReqTypeJoin)
-	TestServerJoinExp    = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
+	TestServerJoinHidden = fmt.Sprintf(`{"roomName":"%s","reqType":%d,"content":"hidden"}`,
+		testChatRoomName1, ChatReqTypeJoin)
+	TestServerJoinErr = fmt.Sprintf(`{"roomName":"","reqType":%d}`, ChatReqTypeJoin)
+	TestServerJoin2   = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName2, ChatReqTypeJoin)
+	TestServerJoin3   = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName3, ChatReqTypeJoin)
+	TestServerJoinExp = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
 		`"content":"%s has joined the room.","list":[]}`, testChatRoomName1, ChatRspTypeJoin, testChatterNickname)
 	TestServerJoinExp2 = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
 		`"content":"%s has joined the room.","list":[]}`, testChatRoomName2, ChatRspTypeJoin, testChatterNickname)
@@ -314,7 +315,8 @@ func TestServerValidWSSession(t *testing.T) {
 	}
 	result = string(rsp[:n])
 	if result != TestServerListNamesExp0 {
-		t.Errorf("Test hidden nickname. Get list of names error.\nExpected: %s\n\nActual: %s\n", TestServerListNamesExp0, result)
+		t.Errorf("Test hidden nickname. Get list of names error.\nExpected: %s\n\nActual: %s\n",
+			TestServerListNamesExp0, result)
 	}
 
 	// Unhide nickname
@@ -354,7 +356,8 @@ func TestServerValidWSSession(t *testing.T) {
 	}
 	result = string(rsp[:n])
 	if result != TestServerListNamesExp1 {
-		t.Errorf("Test unhidden nickname. Get list of names error.\nExpected: %s\n\nActual: %s\n", TestServerListNamesExp1, result)
+		t.Errorf("Test unhidden nickname. Get list of names error.\nExpected: %s\n\nActual: %s\n",
+			TestServerListNamesExp1, result)
 	}
 
 	// Send a message to the room.
@@ -415,7 +418,8 @@ func TestServerValidWSSession(t *testing.T) {
 	}
 	result = string(rsp[:n])
 	if result != TestServerListNamesExp0 {
-		t.Errorf("Test leave room. Get list of names error.\nExpected: %s\n\nActual: %s\n", TestServerListNamesExp0, result)
+		t.Errorf("Test leave room. Get list of names error.\nExpected: %s\n\nActual: %s\n",
+			TestServerListNamesExp0, result)
 	}
 
 	// Join the room as hidden
@@ -455,7 +459,8 @@ func TestServerValidWSSession(t *testing.T) {
 	}
 	result = string(rsp[:n])
 	if result != TestServerListNamesExp0 {
-		t.Errorf("Test hidden nickname. Get list of names error.\nExpected: %s\n\nActual: %s\n", TestServerListNamesExp0, result)
+		t.Errorf("Test hidden nickname. Get list of names error.\nExpected: %s\n\nActual: %s\n",
+			TestServerListNamesExp0, result)
 	}
 
 	// Leave the room
@@ -486,7 +491,8 @@ func TestServerValidWSSession(t *testing.T) {
 	// Validate Chat Room statistics from this session.
 	s := rm.stats()
 	if s.Name != testChatRoomName1 {
-		t.Errorf("Room stats error. Name is incorrect. \nExpected: %s\n\nActual: %s\n", testChatRoomName1, s.Name)
+		t.Errorf("Room stats error. Name is incorrect. \nExpected: %s\n\nActual: %s\n",
+			testChatRoomName1, s.Name)
 	}
 	if s.Start.Before(testRoomStartTime) || s.Start.Equal(testRoomStartTime) {
 		t.Errorf("Room stats error. Start Time is out of range.")
@@ -498,10 +504,12 @@ func TestServerValidWSSession(t *testing.T) {
 		t.Errorf("Room stats error. Last Response Time is out of range.")
 	}
 	if s.ReqCount != testRoomReqs {
-		t.Errorf("Room stats error. ReqCount is incorrect.\nExpected: %d\n\nActual: %d\n", testRoomReqs, s.ReqCount)
+		t.Errorf("Room stats error. ReqCount is incorrect.\nExpected: %d\n\nActual: %d\n",
+			testRoomReqs, s.ReqCount)
 	}
 	if s.RspCount != testRoomRsps {
-		t.Errorf("Room stats error. RsqCount is incorrect.\nExpected: %d\n\nActual: %d\n", testRoomRsps, s.RspCount)
+		t.Errorf("Room stats error. RsqCount is incorrect.\nExpected: %d\n\nActual: %d\n",
+			testRoomRsps, s.RspCount)
 	}
 
 	// Validate Chatter statistics for this session.
@@ -522,10 +530,12 @@ func TestServerValidWSSession(t *testing.T) {
 		t.Errorf("Chatter stats error. Last Response Time is out of range.")
 	}
 	if cs.ReqCount != testChatterReqs {
-		t.Errorf("Chatter stats error. ReqCount is incorrect.\nExpected: %d\n\nActual: %d\n", testChatterReqs, cs.ReqCount)
+		t.Errorf("Chatter stats error. ReqCount is incorrect.\nExpected: %d\n\nActual: %d\n",
+			testChatterReqs, cs.ReqCount)
 	}
 	if cs.RspCount != testChatterRsps {
-		t.Errorf("Chatter stats error. RsqCount is incorrect.\nExpected: %d\n\nActual: %d\n", testChatterRsps, cs.RspCount)
+		t.Errorf("Chatter stats error. RsqCount is incorrect.\nExpected: %d\n\nActual: %d\n",
+			testChatterRsps, cs.RspCount)
 	}
 }
 
@@ -560,7 +570,8 @@ func TestServerWSErrorSession(t *testing.T) {
 	}
 	result := string(rsp[:n])
 	if result != TestServerSetNicknameExpErr {
-		t.Errorf("Set nickname did not receive an error.\nExpected: %s\n\nActual: %s\n", TestServerSetNicknameExpErr, result)
+		t.Errorf("Set nickname did not receive an error.\nExpected: %s\n\nActual: %s\n",
+			TestServerSetNicknameExpErr, result)
 	}
 
 	// Join a room test err conditions
@@ -578,7 +589,8 @@ func TestServerWSErrorSession(t *testing.T) {
 	}
 	result = string(rsp[:n])
 	if result != TestServerJoinExpErr {
-		t.Errorf("Join room did not receive an error.\nExpected: %s\n\nActual: %s\n", TestServerJoinExpErr, result)
+		t.Errorf("Join room did not receive an error.\nExpected: %s\n\nActual: %s\n",
+			TestServerJoinExpErr, result)
 	}
 
 	// Set nickname correctly for user 1
@@ -596,7 +608,8 @@ func TestServerWSErrorSession(t *testing.T) {
 	}
 	result = string(rsp[:n])
 	if result != TestServerSetNicknameExp {
-		t.Errorf("Set nickname received an error.\nExpected: %s\n\nActual: %s\n", TestServerSetNicknameExp, result)
+		t.Errorf("Set nickname received an error.\nExpected: %s\n\nActual: %s\n",
+			TestServerSetNicknameExp, result)
 	}
 
 	// Set nickname user 2 same as user 1
@@ -614,7 +627,8 @@ func TestServerWSErrorSession(t *testing.T) {
 	}
 	result = string(rsp[:n])
 	if result != TestServerSetNicknameExp {
-		t.Errorf("Set nickname received an error.\nExpected: %s\n\nActual: %s\n", TestServerSetNicknameExp, result)
+		t.Errorf("Set nickname received an error.\nExpected: %s\n\nActual: %s\n",
+			TestServerSetNicknameExp, result)
 	}
 
 	// User 1 joins room 1
@@ -650,7 +664,8 @@ func TestServerWSErrorSession(t *testing.T) {
 	}
 	result = string(rsp[:n])
 	if result != TestServerJoinExpErrX2 {
-		t.Errorf("Join 2X should have received an error.\nExpected: %s\n\nActual: %s\n", TestServerJoinExpErrX2, result)
+		t.Errorf("Join 2X should have received an error.\nExpected: %s\n\nActual: %s\n",
+			TestServerJoinExpErrX2, result)
 	}
 
 	// Hide user 1 nickname from room.
@@ -668,7 +683,8 @@ func TestServerWSErrorSession(t *testing.T) {
 	}
 	result = string(rsp[:n])
 	if result != TestServerHideNicknameExp {
-		t.Errorf("Hide nickname received an error.\nExpected: %s\n\nActual: %s\n", TestServerHideNicknameExp, result)
+		t.Errorf("Hide nickname received an error.\nExpected: %s\n\nActual: %s\n",
+			TestServerHideNicknameExp, result)
 	}
 
 	// Posting ability should be disabled if name is hidden.
@@ -686,7 +702,8 @@ func TestServerWSErrorSession(t *testing.T) {
 	}
 	result = string(rsp[:n])
 	if result != TestServerMsgExpErrHide {
-		t.Errorf("Message with hidded name should have received an error.\nExpected: %s\n\nActual: %s\n", TestServerMsgExpErrHide, result)
+		t.Errorf("Message with hidded name should have received an error.\nExpected: %s\n\nActual: %s\n",
+			TestServerMsgExpErrHide, result)
 	}
 
 	// Nickname already used in room should prevent joining. User 2 joins room 1 w/ same name User 1
@@ -704,7 +721,8 @@ func TestServerWSErrorSession(t *testing.T) {
 	}
 	result = string(rsp[:n])
 	if result != TestServerJoinExpErrSame {
-		t.Errorf("Join with same name should have received an error.\nExpected: %s\n\nActual: %s\n", TestServerJoinExpErrSame, result)
+		t.Errorf("Join with same name should have received an error.\nExpected: %s\n\nActual: %s\n",
+			TestServerJoinExpErrSame, result)
 	}
 
 	// Should not be able to grow room limitation.
@@ -722,7 +740,8 @@ func TestServerWSErrorSession(t *testing.T) {
 	}
 	result = string(rsp[:n])
 	if result != TestServerJoinExp2 {
-		t.Errorf("Join should not receive an error.\nExpected: %s\n\nActual: %s\n", TestServerJoinExp2, result)
+		t.Errorf("Join should not receive an error.\nExpected: %s\n\nActual: %s\n",
+			TestServerJoinExp2, result)
 	}
 
 	if _, err := ws1.Write([]byte(TestServerJoin3)); err != nil {
@@ -739,7 +758,8 @@ func TestServerWSErrorSession(t *testing.T) {
 	}
 	result = string(rsp[:n])
 	if result != TestServerJoinExpErrRoom {
-		t.Errorf("Join should have received an error.\nExpected: %s\n\nActual: %s\n", TestServerJoinExpErrRoom, result)
+		t.Errorf("Join should have received an error.\nExpected: %s\n\nActual: %s\n",
+			TestServerJoinExpErrRoom, result)
 	}
 
 	// Test Max timeout
@@ -781,7 +801,8 @@ func TestHTTPRoutes(t *testing.T) {
 		t.Errorf("/alive body should be empty.")
 	}
 	if r.StatusCode != http.StatusOK {
-		t.Errorf("/alive returned invalid status code.\nExpected: %d\n\nActual: %d\n", http.StatusOK, r.StatusCode)
+		t.Errorf("/alive returned invalid status code.\nExpected: %d\n\nActual: %d\n",
+			http.StatusOK, r.StatusCode)
 	}
 
 	rq, _ = http.NewRequest("GET", testSrvrURLStats, nil)
@@ -796,7 +817,8 @@ func TestHTTPRoutes(t *testing.T) {
 		t.Errorf("/status body should not be empty.")
 	}
 	if r.StatusCode != http.StatusOK {
-		t.Errorf("/status returned invalid status code.\nExpected: %d\n\nActual: %d\n", http.StatusOK, r.StatusCode)
+		t.Errorf("/status returned invalid status code.\nExpected: %d\n\nActual: %d\n",
+			http.StatusOK, r.StatusCode)
 	}
 }
 

@@ -23,16 +23,17 @@ import (
 
 // Server is the main structure that represents a server instance.
 type Server struct {
-	info     *Info            // Basic server information used to run the server.
-	opts     *Options         // Original options used to create the server.
-	stats    *Stats           // Server statistics since it started.
-	mu       sync.Mutex       // For locking access to server attributes.
-	running  bool             // Is the server running?
-	log      *ChatLogger      // Log instance for recording error and other messages.
-	roomMngr *ChatRoomManager // Manager of chat rooms.
-	done     chan bool        // A channel to signal to web socked to close.
-	srvr     *http.Server     // HTTP server.
-	wg       sync.WaitGroup   // Synchronization of channel close.
+	info     *Info             // Basic server information used to run the server.
+	opts     *Options          // Original options used to create the server.
+	stats    *Stats            // Server statistics since it started.
+	mu       sync.Mutex        // For locking access to server attributes.
+	running  bool              // Is the server running?
+	log      *ChatLogger       // Log instance for recording error and other messages.
+	roomMngr *ChatRoomManager  // Manager of chat rooms.
+	chatters map[*Chatter]bool // A list of chatters connected to the server.
+	done     chan bool         // A channel to signal to web socked to close.
+	srvr     *http.Server      // HTTP server.
+	wg       sync.WaitGroup    // Synchronization of channel close.
 }
 
 // New is a factory function that returns a new server instance.
@@ -49,10 +50,11 @@ func New(ops *Options) *Server {
 			i.MaxIdle = ops.MaxIdle
 			i.Debug = ops.Debug
 		}),
-		opts:    ops,
-		stats:   StatsNew(),
-		log:     ChatLoggerNew(),
-		running: false,
+		opts:     ops,
+		stats:    StatsNew(),
+		log:      ChatLoggerNew(),
+		chatters: map[*Chatter]bool{},
+		running:  false,
 	}
 
 	if s.info.Debug {
@@ -169,7 +171,13 @@ func (s *Server) chatHandler(ws *websocket.Conn) {
 	s.log.LogConnect(ws.Request())
 	s.incrementStats(ws.Request())
 	c := ChatterNew(s, ws)
+	s.mu.Lock()
+	s.chatters[c] = true // register chatter
+	s.mu.Unlock()
 	c.Run()
+	s.mu.Lock()
+	delete(s.chatters, c) // unregister chatter
+	s.mu.Unlock()
 }
 
 // aliveHandler handles a client http:// "is the server alive?" request.
@@ -186,6 +194,10 @@ func (s *Server) statsHandler(w http.ResponseWriter, r *http.Request) {
 	s.initResponseHeader(w)
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.stats.ChatterStats = []*ChatterStats{}
+	for c := range s.chatters {
+		s.stats.ChatterStats = append(s.stats.ChatterStats, c.stats())
+	}
 	s.stats.RoomStats = s.roomMngr.getRoomStats()
 	mStats := &runtime.MemStats{}
 	runtime.ReadMemStats(mStats)

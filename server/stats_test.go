@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	testStatsExpectedJSONResult = `{"startTime":"2006-01-02T13:24:56Z","reqCount":0,"reqBytes":0,` +
-		`"routeStats":{"route1":{"requesBytes":202,"requestCounts":101},"route2":{"requesBytes":204,` +
-		`"requestCounts":103}},"roomStats":[]}`
+	testStatsExpectedJSONResult = `{"startTime":"2006-01-02T13:24:56Z","reqCount":0,` +
+		`"reqBytes":0,"routeStats":{"route1":{"requesBytes":202,"requestCounts":101},` +
+		`"route2":{"requesBytes":204,"requestCounts":103}},"chatterStats":[],"roomStats":[]}`
 )
 
 func TestStatsNew(t *testing.T) {
