@@ -25,8 +25,8 @@ type Chatter struct {
 	start    time.Time          // The start time of the connection.
 	lastReq  time.Time          // The last request time of the connection.
 	lastRsp  time.Time          // The last response time to the connection.
-	reqCount int64              // Total requests received.
-	rspCount int64              // Total responses sent.
+	reqCount uint64             // Total requests received.
+	rspCount uint64             // Total responses sent.
 	rspq     chan *ChatResponse // A channel to receive information to send to the remote client.
 	mu       sync.Mutex         // For locking access to chatter attributes.
 	wg       sync.WaitGroup     // Synchronization of channel close.
@@ -164,8 +164,8 @@ type ChatterStats struct {
 	Start    time.Time `json:"start"`    // The start time of the chatter.
 	LastReq  time.Time `json:"lastReq"`  // The last request time from the chatter.
 	LastRsp  time.Time `json:"lastRsp"`  // The last response time to the chatter.
-	ReqCount int64     `json:"reqcount"` // Total requests received.
-	RspCount int64     `json:"rspCount"` // Total responses sent.
+	ReqCount uint64    `json:"reqcount"` // Total requests received.
+	RspCount uint64    `json:"rspCount"` // Total responses sent.
 }
 
 // stats returns status information on the chatter.

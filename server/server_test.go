@@ -24,13 +24,13 @@ const (
 var (
 	testChatterStartTime   time.Time
 	testChatterLastReqTime time.Time
-	testChatterReqs        = 0
-	testChatterRsps        = 0
+	testChatterReqs        uint64
+	testChatterRsps        uint64
 
 	testRoomStartTime   time.Time
 	testRoomLastReqTime time.Time
-	testRoomReqs        = 0
-	testRoomRsps        = 0
+	testRoomReqs        uint64
+	testRoomRsps        uint64
 
 	testSrvr    *Server
 	testSrvrURL = fmt.Sprintf("ws://%s:%d/v1.0/chat", testServerHostname, testServerPort)
@@ -55,11 +55,12 @@ var (
 	TestServerListRoomsExp1 = fmt.Sprintf(`{"roomName":"","rspType":%d,"content":"","list":["%s"]}`,
 		ChatRspTypeListRooms, testChatRoomName1)
 
-	TestServerJoin    = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName1, ChatReqTypeJoin)
-	TestServerJoinErr = fmt.Sprintf(`{"roomName":"","reqType":%d}`, ChatReqTypeJoin)
-	TestServerJoin2   = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName2, ChatReqTypeJoin)
-	TestServerJoin3   = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName3, ChatReqTypeJoin)
-	TestServerJoinExp = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
+	TestServerJoin       = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName1, ChatReqTypeJoin)
+	TestServerJoinHidden = fmt.Sprintf(`{"roomName":"%s","reqType":%d,"content":"hidden"}`, testChatRoomName1, ChatReqTypeJoin)
+	TestServerJoinErr    = fmt.Sprintf(`{"roomName":"","reqType":%d}`, ChatReqTypeJoin)
+	TestServerJoin2      = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName2, ChatReqTypeJoin)
+	TestServerJoin3      = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName3, ChatReqTypeJoin)
+	TestServerJoinExp    = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
 		`"content":"%s has joined the room.","list":[]}`, testChatRoomName1, ChatRspTypeJoin, testChatRoomNickname)
 	TestServerJoinExp2 = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
 		`"content":"%s has joined the room.","list":[]}`, testChatRoomName2, ChatRspTypeJoin, testChatRoomNickname)
@@ -373,11 +374,6 @@ func TestServerValidWSSession(t *testing.T) {
 	}
 
 	// Leave the room
-	rm, _ := testSrvr.roomMngr.find(testChatRoomName1) // hold onto the chatter for later stat tests
-	var ch *Chatter
-	for k := range rm.chatters {
-		ch = k
-	}
 	tTestIncrChatterStats()
 	tTestIncrRoomStats()
 	if _, err := ws.Write([]byte(TestServerLeave)); err != nil {
@@ -418,6 +414,71 @@ func TestServerValidWSSession(t *testing.T) {
 		t.Errorf("Test leave room. Get list of names error.\nExpected: %s\n\nActual: %s\n", TestServerListNamesExp0, result)
 	}
 
+	// Join the room as hidden
+	tTestIncrChatterStats()
+	tTestIncrRoomStats()
+	if _, err := ws.Write([]byte(TestServerJoinHidden)); err != nil {
+		if err != nil {
+			t.Errorf("Websocket send error: %s", err)
+			return
+		}
+	}
+	if n, err = ws.Read(rsp); err != nil {
+		if err != nil {
+			t.Errorf("Websocket receive error: %s", err)
+			return
+		}
+	}
+	result = string(rsp[:n])
+	if result != TestServerJoinExp {
+		t.Errorf("Join room error.\nExpected: %s\n\nActual: %s\n", TestServerJoinExp, result)
+	}
+
+	// Validate again nickname is invisible in list (expect 0)
+	tTestIncrChatterStats()
+	tTestIncrRoomStats()
+	if _, err := ws.Write([]byte(TestServerListNames)); err != nil {
+		if err != nil {
+			t.Errorf("Websocket send error: %s", err)
+			return
+		}
+	}
+	if n, err = ws.Read(rsp); err != nil {
+		if err != nil {
+			t.Errorf("Websocket receive error: %s", err)
+			return
+		}
+	}
+	result = string(rsp[:n])
+	if result != TestServerListNamesExp0 {
+		t.Errorf("Test hidden nickname. Get list of names error.\nExpected: %s\n\nActual: %s\n", TestServerListNamesExp0, result)
+	}
+
+	// Leave the room
+	rm, _ := testSrvr.roomMngr.find(testChatRoomName1) // hold onto the chatter for later stat tests
+	var ch *Chatter
+	for k := range rm.chatters {
+		ch = k
+	}
+	tTestIncrChatterStats()
+	tTestIncrRoomStats()
+	if _, err := ws.Write([]byte(TestServerLeave)); err != nil {
+		if err != nil {
+			t.Errorf("Websocket send error: %s", err)
+			return
+		}
+	}
+	if n, err = ws.Read(rsp); err != nil {
+		if err != nil {
+			t.Errorf("Websocket receive error: %s", err)
+			return
+		}
+	}
+	result = string(rsp[:n])
+	if result != TestServerLeaveExp {
+		t.Errorf("Leave room error.\nExpected: %s\n\nActual: %s\n", TestServerLeaveExp, result)
+	}
+
 	// Validate Chat Room statistics from this session.
 	s := rm.stats()
 	if s.Start.Before(testRoomStartTime) || s.Start.Equal(testRoomStartTime) {
@@ -429,10 +490,10 @@ func TestServerValidWSSession(t *testing.T) {
 	if s.LastRsp.Before(testRoomLastReqTime) || s.LastRsp.Equal(testRoomLastReqTime) {
 		t.Errorf("Room stats error. Last Response Time is out of range.")
 	}
-	if s.ReqCount != int64(testRoomReqs) {
+	if s.ReqCount != testRoomReqs {
 		t.Errorf("Room stats error. ReqCount is incorrect.\nExpected: %d\n\nActual: %d\n", testRoomReqs, s.ReqCount)
 	}
-	if s.RspCount != int64(testRoomRsps) {
+	if s.RspCount != testRoomRsps {
 		t.Errorf("Room stats error. RsqCount is incorrect.\nExpected: %d\n\nActual: %d\n", testRoomRsps, s.RspCount)
 	}
 
@@ -447,13 +508,12 @@ func TestServerValidWSSession(t *testing.T) {
 	if cs.LastRsp.Before(testChatterLastReqTime) || cs.LastRsp.Equal(testChatterLastReqTime) {
 		t.Errorf("Chatter stats error. Last Response Time is out of range.")
 	}
-	if cs.ReqCount != int64(testChatterReqs) {
+	if cs.ReqCount != testChatterReqs {
 		t.Errorf("Chatter stats error. ReqCount is incorrect.\nExpected: %d\n\nActual: %d\n", testChatterReqs, cs.ReqCount)
 	}
-	if cs.RspCount != int64(testChatterRsps) {
+	if cs.RspCount != testChatterRsps {
 		t.Errorf("Chatter stats error. RsqCount is incorrect.\nExpected: %d\n\nActual: %d\n", testChatterRsps, cs.RspCount)
 	}
-
 }
 
 func TestServerWSErrorSession(t *testing.T) {
