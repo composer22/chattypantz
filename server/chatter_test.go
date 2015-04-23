@@ -42,6 +42,11 @@ func TestChatterListRooms(t *testing.T) {
 	t.Skip("Covered by server test.")
 }
 
+func TestChatterStats(t *testing.T) {
+	t.Parallel()
+	t.Skip("Covered by server test.")
+}
+
 func TestChatterSendRequestToRoom(t *testing.T) {
 	t.Parallel()
 	t.Skip("Covered by server test.")

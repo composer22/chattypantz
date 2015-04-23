@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"github.com/composer22/chattypantz/logger"
 )
@@ -22,11 +23,12 @@ func ChatLoggerNew() *ChatLogger {
 // connectLogEntry is a datastructure for recording initial connection information.
 type connectLogEntry struct {
 	Method     string      `json:"method"`
+	URL        *url.URL    `json:"url"`
 	Proto      string      `json:"proto"`
-	Host       string      `json:"host"`
-	RequestURI string      `json:"requestURI"`
-	RemoteAddr string      `json:"remoteAddr"`
 	Header     http.Header `json:"header"`
+	Host       string      `json:"host"`
+	RemoteAddr string      `json:"remoteAddr"`
+	RequestURI string      `json:"requestURI"`
 }
 
 // sessionLogEntry is a datastructure for recording general activity between client and server.
@@ -40,11 +42,12 @@ func (l *ChatLogger) LogConnect(r *http.Request) {
 	if l.GetLogLevel() >= logger.Info {
 		b, _ := json.Marshal(&connectLogEntry{
 			Method:     r.Method,
+			URL:        r.URL,
 			Proto:      r.Proto,
-			Host:       r.Host,
-			RequestURI: r.RequestURI,
-			RemoteAddr: r.RemoteAddr,
 			Header:     r.Header,
+			Host:       r.Host,
+			RemoteAddr: r.RemoteAddr,
+			RequestURI: r.RequestURI,
 		})
 		l.Output(3, logger.Labels[logger.Info], `{"connected":%s}`, string(b))
 	}

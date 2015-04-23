@@ -22,12 +22,17 @@ func TestChatRoomMngrFindCreate(t *testing.T) {
 	t.Skip("Covered by server test.")
 }
 
-func TestChatRoomMngrShutdownRooms(t *testing.T) {
+func TestChatRoomMngrRemoveChatterAll(t *testing.T) {
 	t.Parallel()
 	t.Skip("Covered by server test.")
 }
 
-func TestChatRoomMngrRemoveChatter(t *testing.T) {
+func TestChatRoomMngrGetStats(t *testing.T) {
+	t.Parallel()
+	t.Skip("Covered by server test.")
+}
+
+func TestChatRoomMngrShutdownRooms(t *testing.T) {
 	t.Parallel()
 	t.Skip("Covered by server test.")
 }

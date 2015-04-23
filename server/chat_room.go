@@ -136,6 +136,7 @@ func (r *ChatRoom) leave(q *ChatRequest) {
 
 // ChatRoomStats is a simple structure for returning statistic information on the room.
 type ChatRoomStats struct {
+	Name     string    `json:"name"`     // The name of the room.
 	Start    time.Time `json:"start"`    // The start time of the room.
 	LastReq  time.Time `json:"lastReq"`  // The last request time to the room.
 	LastRsp  time.Time `json:"lastRsp"`  // The last response time from the room.
@@ -148,6 +149,7 @@ func (r *ChatRoom) stats() *ChatRoomStats {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return &ChatRoomStats{
+		Name:     r.name,
 		Start:    r.start,
 		LastReq:  r.lastReq,
 		LastRsp:  r.lastRsp,

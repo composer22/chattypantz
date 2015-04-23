@@ -65,6 +65,15 @@ func (m *ChatRoomManager) removeChatterAllRooms(c *Chatter) {
 	}
 }
 
+// getRoomStats returns statistics from each room.
+func (m *ChatRoomManager) getRoomStats() []*ChatRoomStats {
+	var s = []*ChatRoomStats{}
+	for _, r := range m.rooms {
+		s = append(s, r.stats())
+	}
+	return s
+}
+
 // shutDownRooms releases all rooms from processing and memory.
 func (m *ChatRoomManager) shutDownRooms() {
 	// Close the channel which signals a stop run
