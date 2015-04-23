@@ -43,7 +43,7 @@ const (
 
 var (
 	// Log labels.
-	labels = []string{"[EMERGENCY] ",
+	Labels = []string{"[EMERGENCY] ",
 		"[ALERT] ",
 		"[CRITICAL] ",
 		"[ERROR] ",
@@ -116,13 +116,13 @@ func (l *Logger) GetLogLevel() int {
 
 // SetPlainLabels sets the message labels to simple text output.
 func (l *Logger) SetPlainLabels() {
-	copy(l.labels, labels)
+	copy(l.labels, Labels)
 }
 
 // SetColouredLabels sets the message labels to colourized text output.
 func (l *Logger) SetColouredLabels() {
 	l.labels = make([]string, 0)
-	for i, lbl := range labels {
+	for i, lbl := range Labels {
 		var clr int
 		switch i {
 		case Emergency, Alert, Critical, Error:
@@ -144,7 +144,7 @@ func (l *Logger) SetColouredLabels() {
 // This is considered an unrecoverable error and the application also exits, unless dont exit = true.
 func (l *Logger) Emergencyf(format string, v ...interface{}) {
 	if l.level >= Emergency {
-		l.Output(3, labels[Emergency], format, v...)
+		l.Output(3, Labels[Emergency], format, v...)
 	}
 	l.performExit(l.exit)
 }
@@ -152,49 +152,49 @@ func (l *Logger) Emergencyf(format string, v ...interface{}) {
 // Alertf prints an alert message to the system log.
 func (l *Logger) Alertf(format string, v ...interface{}) {
 	if l.level >= Alert {
-		l.Output(3, labels[Alert], format, v...)
+		l.Output(3, Labels[Alert], format, v...)
 	}
 }
 
 // Criticalf prints a critical message to the system log.
 func (l *Logger) Criticalf(format string, v ...interface{}) {
 	if l.level >= Critical {
-		l.Output(3, labels[Critical], format, v...)
+		l.Output(3, Labels[Critical], format, v...)
 	}
 }
 
 // Errorf prints an error message to the system log.
 func (l *Logger) Errorf(format string, v ...interface{}) {
 	if l.level >= Error {
-		l.Output(3, labels[Error], format, v...)
+		l.Output(3, Labels[Error], format, v...)
 	}
 }
 
 // Warningf prints a warning message to the system log.
 func (l *Logger) Warningf(format string, v ...interface{}) {
 	if l.level >= Warning {
-		l.Output(3, labels[Warning], format, v...)
+		l.Output(3, Labels[Warning], format, v...)
 	}
 }
 
 // Noticef prints a notice message to the system log.
 func (l *Logger) Noticef(format string, v ...interface{}) {
 	if l.level >= Notice {
-		l.Output(3, labels[Notice], format, v...)
+		l.Output(3, Labels[Notice], format, v...)
 	}
 }
 
 // Infof prints an informational message to the system log.
 func (l *Logger) Infof(format string, v ...interface{}) {
 	if l.level >= Info {
-		l.Output(3, labels[Info], format, v...)
+		l.Output(3, Labels[Info], format, v...)
 	}
 }
 
 // Debugf prints a debug message to the system log.
 func (l *Logger) Debugf(format string, v ...interface{}) {
 	if l.level >= Debug {
-		l.Output(3, labels[Debug], format, v...)
+		l.Output(3, Labels[Debug], format, v...)
 	}
 }
 

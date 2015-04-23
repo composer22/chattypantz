@@ -1,8 +1,13 @@
 # OnDeck
-- [ ] none
+- [ ] Tests.
+- [ ] Debugging.
+- [ ] Front end code.
+- [ ] Enable stats.
+- [ ] Enable history in a room and load n records from that log.
 
 # Backlog
-- [ ] none
+- [ ] Token login
+- [ ] TLS access
 
 # Done
 

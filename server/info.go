@@ -12,7 +12,7 @@ type Info struct {
 	ProfPort   int    `json:"profPort"`     // Profiler port the server is listening on.
 	MaxConns   int    `json:"maxConns"`     // The maximum concurrent clients accepted.
 	MaxRooms   int    `json:"maxRooms"`     // The maximum number of chat rooms allowed.
-	MaxHistory int    `json:"maxHistory"`   // The maximum number of history to retain per room.
+	MaxHistory int    `json:"maxHistory"`   // The maximum number of history recs to retain per room.
 	MaxIdle    int    `json:"maxIdle"`      // The maximum client idle time in seconds before disconnect.
 	Debug      bool   `json:"debugEnabled"` // Is debugging enabled on the server.
 }

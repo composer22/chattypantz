@@ -1,7 +1,5 @@
 package server
 
-import "time"
-
 const (
 	version           = "0.1.0"     // Application and server version.
 	DefaultHostname   = "localhost" // The hostname of the server.
@@ -13,12 +11,7 @@ const (
 	DefaultMaxIdle    = 0           // Maximum idle seconds per user connection. *
 	DefaultMaxProcs   = 0           // Maximum number of computer processors to utilize. *
 
-	// * zeros = no change or no limitations or not enabled.
-
-	// Listener and connections.
-	TCPKeepAliveTimeout = 3 * time.Minute  // deprecated
-	TCPReadTimeout      = 10 * time.Second // deprecated
-	TCPWriteTimeout     = 30 * time.Second // deprecated
+	// * zeros = no change or no limitation or not enabled.
 
 	// http: routes.
 	wsRouteV1Conn = "/v1.0/chat"

@@ -6,17 +6,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/composer22/chattypantz/logger"
 	"github.com/composer22/chattypantz/server"
 )
 
 var (
-	log *logger.Logger = logger.New(logger.UseDefault, false)
+	log *server.ChatLogger = server.ChatLoggerNew()
 )
-
-//func init() {
-//	log = logger.New(logger.UseDefault, false)
-//}
 
 // main is the main entry point for the application or server launch.
 func main() {

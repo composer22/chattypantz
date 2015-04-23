@@ -12,11 +12,11 @@ This is a small server and client that demonstrates some Golang network socket f
 
 Some key objectives in this demonstration:
 
-* Clients connect to the server on ws://{host:port}/{chatroom}/{nickname}
+* Clients connect to the server on ws://{host:port}
 * Messages sent by a client are broadcasted to other clients connected to the same chat room.
-* The server only supports text messages. Binary websocket frames will be discarded and the clients sending those frames will be disconnected with a message.
-* When a client connects to a chat room, the server broadcasts {nickname} (client address}:{client port} joined the party! to clients that were already connected to the same chat room.
-* When a client disconnects, the server broadcasts {nickname} (client address}:{client port} has left the room to clients connected to the same chat room.
+* The server only supports JSON text messages. Binary websocket frames will be discarded and the clients sending those frames will be disconnected with a message.
+* When a client connects to a chat room, the server broadcasts "{nickname} joined the room." to clients that were already connected to the same chat room.
+* When a client disconnects, the server broadcasts "{nickname} has left the room." to clients connected to the same chat room.
 * An unlimited amount of chat rooms can be created on the server (unless it runs out of memory or file descriptors).
 * An unlimited amount of clients can join each chat room on the server (unless it runs out of memory or file descriptors).
 
@@ -24,7 +24,7 @@ Additional objectives:
 
 * Only one connection per nickname allowed per chat room
 * When the server runs out of memory it shouldn't crash and instead start disconnecting clients to release system resources.
-* The server should provide an idle timeout option.  If a user doesn't interact withing n-minutes, the user should be automatically disconnected.
+* The server should provide an idle timeout option.  If a user doesn't interact withing n-seconds, the user should be automatically disconnected.
 * Chat history for each room should be stored in a file for each chat. When the user logs in to a room, the history should be provided to the client. A max history option should be provided.
 
 For TODOs, please see TODO.md
@@ -72,15 +72,55 @@ Simply load the chattypantz.html file in your browser.
 
 The socket connection endpoint is:
 ```
-ws://{host:port}/{chatroom}/{nickname}
+ws://{host:port}/v1.0/chat
 ```
-For a query of open rooms:
+Following are some examples for using Chrome/Dark Websocket.
+Spaces must be encoded in JSON calls.
+
 ```
-ws://{host:port}/
-```
-For a query of users in a room:
-```
-ws://{host:port}/{chatroom}
+# Establishg a connection
+/connect ws://127.0.0.1:6660/v1.0/chat
+
+# Register a nickname on the server.
+# ChatReqTypeSetNickname = 101
+/send {"reqType":101,"content":"ChatMonkey"}
+
+# Get your nickname from the server.
+# ChatReqTypeGetNickname = 102
+/send {"reqType":102}
+
+# Get a list of Chat Room names.
+# ChatReqTypeListRooms = 103
+/send {"reqType":103}
+
+# Join a room or join a room with hidden name.
+# ChatReqTypeJoin = 104
+/send {"roomName":"Your\ Room","reqType":104}
+/send {"roomName":"Your\ Room","reqType":104,"content":"hidden"}
+
+# Get a list of nicknames in a room.
+# ChatReqTypeListNames = 105
+/send {"roomName":"Your\ Room","reqType":105}
+
+# Hide your name in a room list.
+# ChatReqTypeHide = 106
+/send {"roomName":"Your\ Room","reqType":106}
+
+# Unhide your name in a room list.
+# ChatReqTypeUnhide = 107
+/send {"roomName":"Your\ Room","reqType":107}
+
+# Send message to the room.
+# ChatReqTypeMsg = 108
+/send {"roomName":"Your\ Room","reqType":107,"content":"Hello world!"}
+
+# Leave a room.
+# ChatReqTypeLeave = 109
+/send {"roomName":"Your\ Room","reqType":108}
+
+# Disconnect from the server
+/disconnect
+
 ```
 
 ## Building

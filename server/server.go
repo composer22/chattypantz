@@ -2,12 +2,10 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"sync"
@@ -21,40 +19,22 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-// connectLogEntry is a datastructure for recording initial connection information.
-type connectLogEntry struct {
-	Method        string      `json:"method"`
-	URL           *url.URL    `json:"url"`
-	Proto         string      `json:"proto"`
-	Header        http.Header `json:"header"`
-	Body          string      `json:"body"`
-	ContentLength int64       `json:"contentLength"`
-	Host          string      `json:"host"`
-	RemoteAddr    string      `json:"remoteAddr"`
-	RequestURI    string      `json:"requestURI"`
-	Trailer       http.Header `json:"trailer"`
-}
-
-// sessionLogEntry is a datastructure for recording general activity between client and server.
-type sessionLogEntry struct {
-	RemoteAddr string `json:"remoteAddr"`
-	Message    string `json:"message"`
-}
-
 // Server is the main structure that represents a server instance.
 type Server struct {
-	info    *Info          // Basic server information used to run the server.
-	opts    *Options       // Original options used to create the server.
-	stats   *Status        // Server statistics since it started.
-	mu      sync.Mutex     // For locking access to server params.
-	running bool           // Is the server running?
-	log     *logger.Logger // Log instance for recording error and other messages.
-	srvr    *http.Server   // HTTP server.
-	wg      sync.WaitGroup // Synchronization of channel close.
+	info     *Info            // Basic server information used to run the server.
+	opts     *Options         // Original options used to create the server.
+	stats    *Status          // Server statistics since it started.
+	mu       sync.Mutex       // For locking access to server attributes.
+	running  bool             // Is the server running?
+	log      *ChatLogger      // Log instance for recording error and other messages.
+	roomMngr *ChatRoomManager // Manager of chat rooms.
+	done     chan bool        // A channel to signal to web socked to close.
+	srvr     *http.Server     // HTTP server.
+	wg       sync.WaitGroup   // Synchronization of channel close.
 }
 
 // New is a factory function that returns a new server instance.
-func New(ops *Options, addedOpts ...func(*Server)) *Server {
+func New(ops *Options) *Server {
 	s := &Server{
 		info: InfoNew(func(i *Info) {
 			i.Name = ops.Name
@@ -69,7 +49,7 @@ func New(ops *Options, addedOpts ...func(*Server)) *Server {
 		}),
 		opts:    ops,
 		stats:   StatusNew(),
-		log:     logger.New(logger.UseDefault, false),
+		log:     ChatLoggerNew(),
 		running: false,
 	}
 
@@ -78,18 +58,13 @@ func New(ops *Options, addedOpts ...func(*Server)) *Server {
 	}
 
 	// Setup the mutext, routes, middleware, and server.
-	http.Handle(wsRouteV1Conn, websocket.Handler(s.echoHandler))
-
+	http.Handle(wsRouteV1Conn, websocket.Handler(s.chatHandler))
 	s.srvr = &http.Server{
 		Addr: fmt.Sprintf("%s:%d", s.info.Hostname, s.info.Port),
 	}
 
-	s.handleSignals() // Evoke trap signals handler
-
-	// Additional hook for specialized custom options.
-	for _, f := range addedOpts {
-		f(s)
-	}
+	s.roomMngr = ChatRoomManagerNew(s.info.MaxRooms, s.log) // Set the manager of the chat rooms
+	s.handleSignals()                                       // Evoke trap signals handler
 	return s
 }
 
@@ -126,10 +101,12 @@ func (s *Server) Start() error {
 	}
 
 	s.stats.Start = time.Now()
+	s.done = make(chan bool)
 	s.running = true
 	s.mu.Unlock()
-
 	err = s.srvr.Serve(ln)
+
+	// Done.
 	s.mu.Lock()
 	s.running = false
 	s.mu.Unlock()
@@ -159,9 +136,13 @@ func (s *Server) Shutdown() {
 	s.log.Infof("BEGIN server service stop.")
 
 	s.mu.Lock()
+	s.log.Infof("\tShutting down chatters...")
+	close(s.done)
 	s.running = false
 	s.mu.Unlock()
-
+	s.wg.Wait()
+	s.log.Infof("\tShutting down rooms...")
+	s.roomMngr.shutDownRooms()
 	s.log.Infof("END server service stop.")
 }
 
@@ -179,81 +160,11 @@ func (s *Server) handleSignals() {
 	}()
 }
 
-func (s *Server) echoHandler(ws *websocket.Conn) {
-	var reply string
-	r := ws.Request()
-	s.LogConnect(r)
-	remoteAddr := fmt.Sprint(r.RemoteAddr)
-	for {
-		// Set optional idle timeout.
-		if s.info.MaxIdle > 0 {
-			ws.SetReadDeadline(time.Now().Add(time.Duration(s.info.MaxIdle) * time.Second))
-		}
-
-		if err := websocket.Message.Receive(ws, &reply); err != nil {
-			e, ok := err.(net.Error)
-			switch {
-			case ok && e.Timeout():
-				s.LogSession("disconnected", remoteAddr, "Client forced to disconnect due to inactivity.")
-			case err.Error() == "EOF":
-				s.LogSession("disconnected", remoteAddr, "Client disconnected.")
-			default:
-				s.LogError(remoteAddr, fmt.Sprintf("Couldn't receive. Error: %s", err.Error()))
-			}
-			return
-		}
-		s.LogSession("received", remoteAddr, reply)
-
-		msg := fmt.Sprintf("Received: %s", reply)
-		if err := websocket.Message.Send(ws, msg); err != nil {
-			switch {
-			case err.Error() == "EOF":
-				s.LogSession("disconnected", remoteAddr, "Client disconnected.")
-			default:
-				s.LogError(remoteAddr, fmt.Sprintf("Couldn't receive. Error: %s", err.Error()))
-			}
-			return
-		}
-	}
-}
-
-// LogConnect logs information from the socket when the client first connects to the server.
-func (s *Server) LogConnect(r *http.Request) {
-	var cl int64
-	if r.ContentLength > 0 {
-		cl = r.ContentLength
-	}
-
-	b, _ := json.Marshal(&connectLogEntry{
-		Method:        r.Method,
-		URL:           r.URL,
-		Proto:         r.Proto,
-		Header:        r.Header,
-		ContentLength: cl,
-		Host:          r.Host,
-		RemoteAddr:    r.RemoteAddr,
-		RequestURI:    r.RequestURI,
-		Trailer:       r.Trailer,
-	})
-	s.log.Infof(`{"connected":%s}`, string(b))
-}
-
-// LogSession is used to record information received in the client's session.
-func (s *Server) LogSession(tp string, addr string, msg string) {
-	b, _ := json.Marshal(&sessionLogEntry{
-		RemoteAddr: addr,
-		Message:    msg,
-	})
-	s.log.Infof(`{"%s":%s}`, tp, string(b))
-}
-
-// LogError is used to record information regarding misc session errors between server and client.
-func (s *Server) LogError(addr string, msg string) {
-	b, _ := json.Marshal(&sessionLogEntry{
-		RemoteAddr: addr,
-		Message:    msg,
-	})
-	s.log.Errorf(`{"error":%s}`, string(b))
+// chatHandler is the main entry point to handle chat connections to the client.
+func (s *Server) chatHandler(ws *websocket.Conn) {
+	s.log.LogConnect(ws.Request())
+	c := ChatterNew(s, ws)
+	c.Run()
 }
 
 // isRunning returns a boolean representing whether the server is running or not.
