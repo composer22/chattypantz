@@ -103,7 +103,7 @@ func (c *Chatter) send() {
 	for {
 		select {
 		case <-c.srvr.done: // Server shutdown signal.
-			c.ws.Close() // Break the receiv() loop and force a chatter shutdown.
+			c.ws.Close() // Break the receive() loop and force a chatter shutdown.
 			return
 		case rsp, ok := <-c.rspq:
 			if !ok { // Assume ch closed is a shutdown notification from anybody.

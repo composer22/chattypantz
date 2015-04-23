@@ -15,10 +15,10 @@ type ChatRoomManager struct {
 }
 
 // ChatRoomManagerNew is a factory function that returns a new instance of a chat room manager.
-func ChatRoomManagerNew(x int, cl *ChatLogger) *ChatRoomManager {
+func ChatRoomManagerNew(n int, cl *ChatLogger) *ChatRoomManager {
 	return &ChatRoomManager{
 		rooms:    make(map[string]*ChatRoom),
-		maxRooms: x,
+		maxRooms: n,
 		log:      cl,
 	}
 }
@@ -56,26 +56,24 @@ func (m *ChatRoomManager) findCreate(n string) (*ChatRoom, error) {
 	return r, nil
 }
 
+// removeChatterAllRooms releases the chatter from any rooms.
+func (m *ChatRoomManager) removeChatterAllRooms(c *Chatter) {
+	for _, r := range m.rooms {
+		if q, err := ChatRequestNew(c, r.name, ChatReqTypeLeave, ""); err == nil {
+			r.reqq <- q
+		}
+	}
+}
+
 // shutDownRooms releases all rooms from processing and memory.
 func (m *ChatRoomManager) shutDownRooms() {
 	// Close the channel which signals a stop run
-	for _, cr := range m.rooms {
-		cr.mu.Lock()
-		close(cr.reqq)
-		cr.mu.Unlock()
+	for _, r := range m.rooms {
+		r.mu.Lock()
+		close(r.reqq)
+		r.mu.Unlock()
 	}
 	m.wg.Wait()
 	m.rooms = nil
 	m.rooms = make(map[string]*ChatRoom)
-}
-
-// removeChatterAllRooms releases the chatter from any rooms.
-func (m *ChatRoomManager) removeChatterAllRooms(c *Chatter) {
-	// Close the channel which signals a stop run
-	for _, cr := range m.rooms {
-		r, err := ChatRequestNew(c, cr.name, ChatReqTypeLeave, "")
-		if err == nil {
-			cr.reqq <- r
-		}
-	}
 }

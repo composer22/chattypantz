@@ -174,6 +174,7 @@ func (r *ChatRoom) isMemberName(n string) bool {
 
 // sendResponse sends a message to a single chatter in the room.
 func (r *ChatRoom) sendResponse(c *Chatter, rt int, ct string, l []string) {
+	c.mu.Lock()
 	if c.rspq != nil {
 		if l == nil {
 			l = []string{}
@@ -187,6 +188,7 @@ func (r *ChatRoom) sendResponse(c *Chatter, rt int, ct string, l []string) {
 			c.rspq <- rsp
 		}
 	}
+	c.mu.Unlock()
 }
 
 // sendResponseAll sends a message to all chatters in the room.
@@ -197,6 +199,7 @@ func (r *ChatRoom) sendResponseAll(rt int, ct string, l []string) {
 	rsp, err := ChatResponseNew(r.name, rt, ct, l)
 	if err == nil {
 		for c := range r.chatters {
+			c.mu.Lock()
 			if c.rspq != nil {
 				r.mu.Lock()
 				r.lastRsp = time.Now()
@@ -204,6 +207,7 @@ func (r *ChatRoom) sendResponseAll(rt int, ct string, l []string) {
 				r.mu.Unlock()
 				c.rspq <- rsp
 			}
+			c.mu.Unlock()
 		}
 	}
 }
