@@ -60,7 +60,9 @@ func (m *ChatRoomManager) findCreate(n string) (*ChatRoom, error) {
 func (m *ChatRoomManager) shutDownRooms() {
 	// Close the channel which signals a stop run
 	for _, cr := range m.rooms {
+		cr.mu.Lock()
 		close(cr.reqq)
+		cr.mu.Unlock()
 	}
 	m.wg.Wait()
 	m.rooms = nil

@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -11,8 +12,7 @@ import (
 )
 
 var (
-	maxChatterRsp   = 1000                   // The max number of responses in the response channel.
-	maxChatterSleep = 100 * time.Millisecond // How long to sleep between chan peeks.
+	maxChatterRsp = 1000 // The max number of responses in the response channel.
 )
 
 // Chatter is a wrapper around a connection that represents one chat client on the server.
@@ -124,9 +124,8 @@ func (c *Chatter) send() {
 					c.srvr.log.LogError(remoteAddr, fmt.Sprintf("Couldn't send. Error: %s", err.Error()))
 				}
 			}
-		default:
-			time.Sleep(maxChatterSleep)
 		}
+		runtime.Gosched()
 	}
 }
 
@@ -198,8 +197,6 @@ func (c *Chatter) sendRequestToRoom(r *ChatRequest) {
 
 // sendResponse sends a message to a chatter.
 func (c *Chatter) sendResponse(rt int, msg string, l []string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.rspq != nil {
 		if l == nil {
 			l = []string{}

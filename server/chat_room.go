@@ -2,13 +2,13 @@ package server
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 	"time"
 )
 
 var (
-	maxChatRoomReq   = 1000                   // The maximum number of requests in the req channel.
-	maxChatRoomSleep = 100 * time.Millisecond // How long to sleep between chan peeks.
+	maxChatRoomReq = 1000 // The maximum number of requests in the req channel.
 )
 
 // ChatRoom represents a hub of chatters where messages can be exchanged.
@@ -68,9 +68,8 @@ func (r *ChatRoom) Run() {
 				r.sendResponse(req.Who, ChatRspTypeErrUnknownReq,
 					fmt.Sprintf(`Unknown request sent to room "%s".`, r.name), nil)
 			}
-		default:
-			time.Sleep(maxChatRoomSleep)
 		}
+		runtime.Gosched()
 	}
 }
 
