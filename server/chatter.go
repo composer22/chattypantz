@@ -146,18 +146,34 @@ func (c *Chatter) setNickname(r *ChatRequest) {
 		c.sendResponse(ChatRspTypeErrNicknameMandatory, "Nickname cannot be blank.", nil)
 		return
 	}
+	c.mu.Lock()
 	c.nickname = r.Content
-	c.sendResponse(ChatRspTypeSetNickname, fmt.Sprintf(`Nickname set to "%s".`, c.nickname), nil)
+	c.mu.Unlock()
+	c.sendResponse(ChatRspTypeSetNickname, fmt.Sprintf(`Nickname set to "%s".`, c.Nickname()), nil)
 }
 
-// nickname returns the nickname for the chatter.
+// nickname returns the nickname for the chatter via the response queue.
 func (c *Chatter) getNickname() {
-	c.sendResponse(ChatRspTypeGetNickname, c.nickname, nil)
+	c.sendResponse(ChatRspTypeGetNickname, c.Nickname(), nil)
+}
+
+// Nickname returns the raw nickname for the chatter.
+func (c *Chatter) Nickname() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.nickname
 }
 
 // listRooms returns a list of chat rooms to the chatter.
 func (c *Chatter) listRooms() {
 	c.sendResponse(ChatRspTypeListRooms, "", c.srvr.roomMngr.list())
+}
+
+// isConnected returns the state of the websocket connection.
+func (c *Chatter) isConnected() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.connected
 }
 
 // ChatterStats is a simple structure for returning statistic information on the chatter.
@@ -176,7 +192,7 @@ func (c *Chatter) ChatterStatsNew() *ChatterStats {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return &ChatterStats{
-		Nickname:   c.nickname,
+		Nickname:   c.Nickname(),
 		RemoteAddr: c.ws.Request().RemoteAddr,
 		Start:      c.start,
 		LastReq:    c.lastReq,
@@ -202,14 +218,14 @@ func (c *Chatter) sendRequestToRoom(r *ChatRequest) {
 
 // sendResponse sends a message to a chatter.
 func (c *Chatter) sendResponse(rt int, msg string, l []string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.connected {
+	if c.isConnected() {
 		if l == nil {
 			l = []string{}
 		}
 		if rsp, err := ChatResponseNew("", rt, msg, l); err == nil {
+			c.mu.Lock()
 			c.rspq <- rsp
+			c.mu.Unlock()
 		}
 	}
 }

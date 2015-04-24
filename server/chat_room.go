@@ -79,9 +79,9 @@ func (r *ChatRoom) join(q *ChatRequest) {
 	case r.isMember(q.Who):
 		r.sendResponse(q.Who, ChatRspTypeErrAlreadyJoined,
 			fmt.Sprintf(`You are already a member of room "%s".`, r.name), nil)
-	case r.isMemberName(q.Who.nickname):
+	case r.isMemberName(q.Who.Nickname()):
 		r.sendResponse(q.Who, ChatRspTypeErrNicknameUsed,
-			fmt.Sprintf(`Nickname "%s" is already in use in room "%s".`, q.Who.nickname, r.name), nil)
+			fmt.Sprintf(`Nickname "%s" is already in use in room "%s".`, q.Who.Nickname(), r.name), nil)
 	default:
 		r.mu.Lock()
 		r.chatters[q.Who] = false
@@ -90,47 +90,56 @@ func (r *ChatRoom) join(q *ChatRequest) {
 		}
 		r.mu.Unlock()
 		r.log.Infof("sendResponseAll")
-		r.sendResponseAll(ChatRspTypeJoin, fmt.Sprintf("%s has joined the room.", q.Who.nickname), nil)
+		r.sendResponseAll(ChatRspTypeJoin, fmt.Sprintf("%s has joined the room.", q.Who.Nickname()), nil)
 	}
 }
 
 // listNames sends a response to the user with a list of all nicknames in the room.
 func (r *ChatRoom) listNames(q *ChatRequest) {
 	var names []string
+	r.mu.Lock()
 	for c, hidden := range r.chatters {
 		if !hidden { // don't return hidden names.
-			names = append(names, c.nickname)
+			names = append(names, c.Nickname())
 		}
 	}
+	r.mu.Unlock()
 	r.sendResponse(q.Who, ChatRspTypeListNames, "", names)
 }
 
 // hide visually makes a nickname inactive in the user list
 func (r *ChatRoom) hide(q *ChatRequest) {
+	r.mu.Lock()
 	r.chatters[q.Who] = true
+	r.mu.Unlock()
 	r.sendResponse(q.Who, ChatRspTypeHide, fmt.Sprintf(`You are now hidden in room "%s".`, r.name), nil)
 }
 
 // unhide visually makes a nickname active in the user list
 func (r *ChatRoom) unhide(q *ChatRequest) {
+	r.mu.Lock()
 	r.chatters[q.Who] = false
+	r.mu.Unlock()
 	r.sendResponse(q.Who, ChatRspTypeUnhide, fmt.Sprintf(`You are now unhidden in room "%s".`, r.name), nil)
 }
 
 // message sends a message from a chatter to everyone in the room.
 func (r *ChatRoom) message(q *ChatRequest) {
-	switch {
-	case r.chatters[q.Who] == true:
+	r.mu.Lock()
+	isHidden := r.chatters[q.Who]
+	r.mu.Unlock()
+	if isHidden {
 		r.sendResponse(q.Who, ChatRspTypeErrHiddenNickname,
-			fmt.Sprintf(`Nickname "%s" is hidden. Cannot post in room "%s".`, q.Who.nickname, r.name), nil)
-	default:
-		r.sendResponseAll(ChatRspTypeMsg, fmt.Sprintf("%s: %s", q.Who.nickname, q.Content), nil)
+			fmt.Sprintf(`Nickname "%s" is hidden. Cannot post in room "%s".`, q.Who.Nickname(),
+				r.name), nil)
+	} else {
+		r.sendResponseAll(ChatRspTypeMsg, fmt.Sprintf("%s: %s", q.Who.Nickname(), q.Content), nil)
 	}
 }
 
 // leave removes the chatter from the room and notifies the group the chatter has left.
 func (r *ChatRoom) leave(q *ChatRequest) {
-	name := q.Who.nickname
+	name := q.Who.Nickname()
 	r.mu.Lock()
 	delete(r.chatters, q.Who)
 	r.mu.Unlock()
@@ -179,14 +188,18 @@ func (r *ChatRoom) ChatRoomStatsNew() *ChatRoomStats {
 
 // isMember validates if the member exists in the room.
 func (r *ChatRoom) isMember(c *Chatter) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	_, ok := r.chatters[c]
 	return ok
 }
 
 // isMemberName validates if a member is using a nickname in the room.
 func (r *ChatRoom) isMemberName(n string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for c := range r.chatters {
-		if c.nickname == n {
+		if c.Nickname() == n {
 			return true
 		}
 	}
@@ -195,9 +208,7 @@ func (r *ChatRoom) isMemberName(n string) bool {
 
 // sendResponse sends a message to a single chatter in the room.
 func (r *ChatRoom) sendResponse(c *Chatter, rt int, ct string, l []string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.connected {
+	if c.isConnected() {
 		if l == nil {
 			l = []string{}
 		}
@@ -206,7 +217,9 @@ func (r *ChatRoom) sendResponse(c *Chatter, rt int, ct string, l []string) {
 			r.lastRsp = time.Now()
 			r.rspCount++
 			r.mu.Unlock()
+			c.mu.Lock()
 			c.rspq <- rsp
+			c.mu.Unlock()
 		}
 	}
 }
@@ -217,16 +230,16 @@ func (r *ChatRoom) sendResponseAll(rt int, ct string, l []string) {
 		l = []string{}
 	}
 	if rsp, err := ChatResponseNew(r.name, rt, ct, l); err == nil {
+		r.mu.Lock()
 		for c := range r.chatters {
-			c.mu.Lock()
-			if c.connected {
-				r.mu.Lock()
+			if c.isConnected() {
 				r.lastRsp = time.Now()
 				r.rspCount++
-				r.mu.Unlock()
+				c.mu.Lock()
 				c.rspq <- rsp
+				c.mu.Unlock()
 			}
-			c.mu.Unlock()
 		}
+		r.mu.Unlock()
 	}
 }
