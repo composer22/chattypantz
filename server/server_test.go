@@ -438,7 +438,7 @@ func TestServerValidWSSession(t *testing.T) {
 	if result != TestServerJoinExp {
 		t.Errorf("Join room error.\nExpected: %s\n\nActual: %s\n", TestServerJoinExp, result)
 	}
-	return
+
 	// Validate again nickname is invisible in list (expect 0)
 	tTestIncrChatterStats()
 	tTestIncrRoomStats()

@@ -135,8 +135,8 @@ func (c *Chatter) shutDown() {
 	c.srvr.roomMngr.removeChatterAllRooms(c)
 	c.mu.Lock()
 	c.connected = false
-	close(c.rspq) // signal stop to send()
 	c.mu.Unlock()
+	close(c.rspq) // signal stop to send()
 	c.wg.Wait()
 }
 
@@ -192,7 +192,7 @@ func (c *Chatter) ChatterStatsNew() *ChatterStats {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return &ChatterStats{
-		Nickname:   c.Nickname(),
+		Nickname:   c.nickname,
 		RemoteAddr: c.ws.Request().RemoteAddr,
 		Start:      c.start,
 		LastReq:    c.lastReq,
