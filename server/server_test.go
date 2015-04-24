@@ -12,15 +12,14 @@ import (
 )
 
 const (
-	testServerHostname   = "localhost"
-	testServerPort       = 6660
-	testServerMaxConns   = 4
-	testServerMaxRooms   = 2
-	testServerMaxHistory = 5
-	testChatRoomName1    = "Room1"
-	testChatRoomName2    = "Room2"
-	testChatRoomName3    = "Room3"
-	testChatterNickname  = "ChatMonkey"
+	testServerHostname  = "localhost"
+	testServerPort      = 6660
+	testServerMaxConns  = 4
+	testServerMaxRooms  = 2
+	testChatRoomName1   = "Room1"
+	testChatRoomName2   = "Room2"
+	testChatRoomName3   = "Room3"
+	testChatterNickname = "ChatMonkey"
 )
 
 var (
@@ -122,16 +121,15 @@ func tTestIncrRoomStats() {
 
 func TestServerStartup(t *testing.T) {
 	opts := &Options{
-		Name:       "Test Server",
-		Hostname:   testServerHostname,
-		Port:       testServerPort,
-		ProfPort:   6060,
-		MaxConns:   testServerMaxConns,
-		MaxRooms:   testServerMaxRooms,
-		MaxHistory: testServerMaxHistory,
-		MaxIdle:    0,
-		MaxProcs:   1,
-		Debug:      true,
+		Name:     "Test Server",
+		Hostname: testServerHostname,
+		Port:     testServerPort,
+		ProfPort: 6060,
+		MaxConns: testServerMaxConns,
+		MaxRooms: testServerMaxRooms,
+		MaxIdle:  0,
+		MaxProcs: 1,
+		Debug:    true,
 	}
 	runtime.GOMAXPROCS(1)
 	testSrvr = New(opts)

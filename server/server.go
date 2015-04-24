@@ -46,7 +46,6 @@ func New(ops *Options) *Server {
 			i.ProfPort = ops.ProfPort
 			i.MaxConns = ops.MaxConns
 			i.MaxRooms = ops.MaxRooms
-			i.MaxHistory = ops.MaxHistory
 			i.MaxIdle = ops.MaxIdle
 			i.Debug = ops.Debug
 		}),
