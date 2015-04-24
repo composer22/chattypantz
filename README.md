@@ -66,12 +66,6 @@ Examples:
 ```
 ## Client Connection and demonstration
 
-The /client directory in the project contains a web page that can be used to demonstrate
-how a client application can connect to a running server. This demonstration is writtern in
-angular.js and javascript.
-
-Simply load the chattypantz.html file in your browser.
-
 The socket connection endpoint is:
 ```
 ws://{host:port}/v1.0/chat
