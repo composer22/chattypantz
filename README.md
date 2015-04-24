@@ -8,8 +8,6 @@
 
 A demo chat server and client written in [Go.](http://golang.org)
 
-
-
 ## About
 
 This is a small server and client that demonstrates some Golang network socket functions and features.
@@ -152,9 +150,7 @@ Date: Fri, 03 Apr 2015 17:29:17 +0000
 Server: San Francisco
 X-Request-Id: DC8D9C2E-8161-4FC0-937F-4CA7037970D5
 Content-Length: 0
-
 ```
-
 ## Building
 
 This code currently requires version 1.42 or higher of Go.
@@ -184,7 +180,6 @@ or
 docker pull composer22/chattypantz:<version>
 ```
 See /docker directory README for more information on how to run it.
-
 
 ## License
 
