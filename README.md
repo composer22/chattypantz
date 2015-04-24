@@ -25,7 +25,7 @@ Additional objectives:
 * Only one connection per nickname allowed per chat room.
 * The server should provide an idle timeout setting.  If a user doesn't interact withing n-seconds, the user should be automatically disconnected.
 * The server should provide a parameter to limit connections and number of rooms.
-* Alive and statistics should be provided by http:// API endpoints.
+* Heartbeat status and statistics should be provided by http:// API endpoints.
 * Chat history for each room should be stored in a file for each chat. When the user logs in to a room, the history should be provided to the client. A max history option should be provided.
 
 For TODOs, please see TODO.md
@@ -177,6 +177,8 @@ A prebuilt docker image is available at (http://www.docker.com) [chattypantz](ht
 If you have docker installed, run:
 ```
 docker pull composer22/chattypantz:latest
+or
+docker pull composer22/chattypantz:<version>
 ```
 See /docker directory README for more information on how to run it.
 
