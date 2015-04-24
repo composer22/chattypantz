@@ -75,7 +75,7 @@ func TestSetColourLabels(t *testing.T) {
 		default:
 			clr = foregroundDefault
 		}
-		expected := fmt.Sprintf(colourFormat, clr, labels[i])
+		expected := fmt.Sprintf(colourFormat, clr, Labels[i])
 		if expected != actual {
 			t.Errorf("Invalid colour label\nExpected:%s\nActual:%s", expected, actual)
 		}
@@ -89,7 +89,7 @@ func TestEmergencyf(t *testing.T) {
 		l := New(Debug, false) // Mock the exit so coverage can complete.
 		l.exit = func(code int) {}
 		l.Emergencyf(testMsg)
-	}, fmt.Sprintf("%s%s\n", labels[Emergency], testMsg))
+	}, fmt.Sprintf("%s%s\n", Labels[Emergency], testMsg))
 }
 
 func TestAlertf(t *testing.T) {
@@ -98,7 +98,7 @@ func TestAlertf(t *testing.T) {
 	expectOutput(t, func() {
 		l := New(Debug, false)
 		l.Alertf(testMsg)
-	}, fmt.Sprintf("%s%s\n", labels[Alert], testMsg))
+	}, fmt.Sprintf("%s%s\n", Labels[Alert], testMsg))
 }
 
 func TestCriticalf(t *testing.T) {
@@ -107,7 +107,7 @@ func TestCriticalf(t *testing.T) {
 	expectOutput(t, func() {
 		l := New(Debug, false)
 		l.Criticalf(testMsg)
-	}, fmt.Sprintf("%s%s\n", labels[Critical], testMsg))
+	}, fmt.Sprintf("%s%s\n", Labels[Critical], testMsg))
 }
 
 func TestErrorf(t *testing.T) {
@@ -116,7 +116,7 @@ func TestErrorf(t *testing.T) {
 	expectOutput(t, func() {
 		l := New(Debug, false)
 		l.Errorf(testMsg)
-	}, fmt.Sprintf("%s%s\n", labels[Error], testMsg))
+	}, fmt.Sprintf("%s%s\n", Labels[Error], testMsg))
 }
 
 func TestWarningf(t *testing.T) {
@@ -125,7 +125,7 @@ func TestWarningf(t *testing.T) {
 	expectOutput(t, func() {
 		l := New(Debug, false)
 		l.Warningf(testMsg)
-	}, fmt.Sprintf("%s%s\n", labels[Warning], testMsg))
+	}, fmt.Sprintf("%s%s\n", Labels[Warning], testMsg))
 }
 
 func TestNoticef(t *testing.T) {
@@ -134,7 +134,7 @@ func TestNoticef(t *testing.T) {
 	expectOutput(t, func() {
 		l := New(Debug, false)
 		l.Noticef(testMsg)
-	}, fmt.Sprintf("%s%s\n", labels[Notice], testMsg))
+	}, fmt.Sprintf("%s%s\n", Labels[Notice], testMsg))
 }
 
 func TestInfof(t *testing.T) {
@@ -143,7 +143,7 @@ func TestInfof(t *testing.T) {
 	expectOutput(t, func() {
 		l := New(Debug, false)
 		l.Infof(testMsg)
-	}, fmt.Sprintf("%s%s\n", labels[Info], testMsg))
+	}, fmt.Sprintf("%s%s\n", Labels[Info], testMsg))
 }
 
 func TestDebugf(t *testing.T) {
@@ -152,7 +152,7 @@ func TestDebugf(t *testing.T) {
 	expectOutput(t, func() {
 		l := New(Debug, false)
 		l.Debugf(testMsg)
-	}, fmt.Sprintf("%s%s\n", labels[Debug], testMsg))
+	}, fmt.Sprintf("%s%s\n", Labels[Debug], testMsg))
 }
 
 func TestOutputf(t *testing.T) {

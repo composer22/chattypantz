@@ -17,7 +17,6 @@ Server options:
 	-L, --profiler_port PORT         *PORT the profiler is listening on (default: off).
     -n, --connections MAX            *MAX client connections allowed (default: unlimited).
     -r, --rooms MAX                  *MAX chatrooms allowed (default: unlimited).
-    -y, --history MAX                *MAX num of history records per room (default: 15).
     -i, --idle MAX                   *MAX idle time in seconds allowed (default: unlimited).
     -X, --procs MAX                  *MAX processor cores to use from the machine.
 

@@ -6,17 +6,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/composer22/chattypantz/logger"
 	"github.com/composer22/chattypantz/server"
 )
 
 var (
-	log *logger.Logger = logger.New(logger.UseDefault, false)
+	log *server.ChatLogger = server.ChatLoggerNew()
 )
-
-//func init() {
-//	log = logger.New(logger.UseDefault, false)
-//}
 
 // main is the main entry point for the application or server launch.
 func main() {
@@ -35,8 +30,6 @@ func main() {
 	flag.IntVar(&opts.MaxConns, "--connections", server.DefaultMaxConns, "Maximum client connections allowed.")
 	flag.IntVar(&opts.MaxRooms, "r", server.DefaultMaxRooms, "Maximum chat rooms allowed.")
 	flag.IntVar(&opts.MaxRooms, "--rooms", server.DefaultMaxRooms, "Maximum chat rooms allowed.")
-	flag.IntVar(&opts.MaxHistory, "y", server.DefaultMaxHistory, "Maximum chat room history allowed.")
-	flag.IntVar(&opts.MaxHistory, "--history", server.DefaultMaxHistory, "Maximum chat room history allowed.")
 	flag.IntVar(&opts.MaxIdle, "i", server.DefaultMaxIdle, "Maximum client idle allowed.")
 	flag.IntVar(&opts.MaxIdle, "--idle", server.DefaultMaxIdle, "Maximum client idle allowed.")
 	flag.IntVar(&opts.MaxProcs, "X", server.DefaultMaxProcs, "Maximum processor cores to use.")
