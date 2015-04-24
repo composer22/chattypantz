@@ -196,7 +196,6 @@ func TestServerValidWSSession(t *testing.T) {
 	if result != TestServerGetNicknameExp {
 		t.Errorf("Get Nickname error.\nExpected: %s\n\nActual: %s\n", TestServerGetNicknameExp, result)
 	}
-
 	// Get List of Rooms (0 rooms)
 	tTestIncrChatterStats()
 	if _, err := ws.Write([]byte(TestServerListRooms)); err != nil {
@@ -538,6 +537,7 @@ func TestServerValidWSSession(t *testing.T) {
 }
 
 func TestServerWSErrorSession(t *testing.T) {
+
 	var rsp = make([]byte, 1024)
 	var n int
 	ws1, err := websocket.Dial(testSrvrURL, "", testSrvrOrg)

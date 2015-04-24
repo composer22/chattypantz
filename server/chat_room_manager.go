@@ -50,15 +50,16 @@ func (m *ChatRoomManager) find(n string) (*ChatRoom, error) {
 func (m *ChatRoomManager) findCreate(n string) (*ChatRoom, error) {
 	r, err := m.find(n)
 	if err != nil {
+		m.mu.Lock() // cover rooms
 		if m.maxRooms > 0 && m.maxRooms == len(m.rooms) {
+			m.mu.Unlock()
 			return nil, errors.New("Maximum number of rooms reached. Cannot create new room.")
 		}
 		r = ChatRoomNew(n, m.log, &m.wg)
-		m.mu.Lock()
 		m.rooms[n] = r
 		m.wg.Add(1)
-		m.mu.Unlock()
 		go r.Run()
+		m.mu.Unlock()
 	}
 	return r, nil
 }
