@@ -42,7 +42,7 @@ func TestChatRoomLeave(t *testing.T) {
 	t.Skip("Covered by server test.")
 }
 
-func TestChatRoomStats(t *testing.T) {
+func TestChatRoomStatsNew(t *testing.T) {
 	t.Parallel()
 	t.Skip("Covered by server test.")
 }

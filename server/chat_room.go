@@ -217,9 +217,7 @@ func (r *ChatRoom) sendResponse(c *Chatter, rt int, ct string, l []string) {
 			r.lastRsp = time.Now()
 			r.rspCount++
 			r.mu.Unlock()
-			c.mu.Lock()
 			c.rspq <- rsp
-			c.mu.Unlock()
 		}
 	}
 }
@@ -235,9 +233,7 @@ func (r *ChatRoom) sendResponseAll(rt int, ct string, l []string) {
 			if c.isConnected() {
 				r.lastRsp = time.Now()
 				r.rspCount++
-				c.mu.Lock()
 				c.rspq <- rsp
-				c.mu.Unlock()
 			}
 		}
 		r.mu.Unlock()

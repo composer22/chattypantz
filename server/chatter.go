@@ -223,9 +223,7 @@ func (c *Chatter) sendResponse(rt int, msg string, l []string) {
 			l = []string{}
 		}
 		if rsp, err := ChatResponseNew("", rt, msg, l); err == nil {
-			c.mu.Lock()
 			c.rspq <- rsp
-			c.mu.Unlock()
 		}
 	}
 }
