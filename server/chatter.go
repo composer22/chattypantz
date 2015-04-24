@@ -171,8 +171,8 @@ type ChatterStats struct {
 	RspCount   uint64    `json:"rspCount"`   // Total responses sent.
 }
 
-// stats returns status information on the chatter.
-func (c *Chatter) stats() *ChatterStats {
+// ChatterStatsNew returns status information on the chatter.
+func (c *Chatter) ChatterStatsNew() *ChatterStats {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return &ChatterStats{

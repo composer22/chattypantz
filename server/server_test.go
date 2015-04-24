@@ -487,7 +487,7 @@ func TestServerValidWSSession(t *testing.T) {
 	}
 
 	// Validate Chat Room statistics from this session.
-	s := rm.stats()
+	s := rm.ChatRoomStatsNew()
 	if s.Name != testChatRoomName1 {
 		t.Errorf("Room stats error. Name is incorrect. \nExpected: %s\n\nActual: %s\n",
 			testChatRoomName1, s.Name)
@@ -511,7 +511,7 @@ func TestServerValidWSSession(t *testing.T) {
 	}
 
 	// Validate Chatter statistics for this session.
-	cs := ch.stats()
+	cs := ch.ChatterStatsNew()
 	if cs.Nickname != testChatterNickname {
 		t.Errorf("Chatter stats error. Nickname not correct.")
 	}

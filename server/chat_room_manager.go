@@ -80,7 +80,7 @@ func (m *ChatRoomManager) getRoomStats() []*ChatRoomStats {
 	defer m.mu.Unlock()
 	var s = []*ChatRoomStats{}
 	for _, r := range m.rooms {
-		s = append(s, r.stats())
+		s = append(s, r.ChatRoomStatsNew())
 	}
 	return s
 }
