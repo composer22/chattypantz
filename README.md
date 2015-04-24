@@ -130,7 +130,7 @@ Spaces must be encoded in JSON calls.
 Two additional API routes are provided:
 
 * http://localhost:6660/v1.0/alive - GET: Is the server alive?
-* http://localhost:6660/v1.0/status - GET: Returns information about the server state.
+* http://localhost:6660/v1.0/stats - GET: Returns information about the server state.
 
 Header should ideally contain:
 
