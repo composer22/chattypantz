@@ -4,7 +4,11 @@
 [![Current Release](https://img.shields.io/badge/release-v0.1.0-brightgreen.svg)](https://github.com/composer22/chattypantz/releases/tag/v0.1.0)
 [![Coverage Status](https://coveralls.io/repos/composer22/chattypantz/badge.svg?branch=master)](https://coveralls.io/r/composer22/chattypantz?branch=master)
 
+![chattypantz-logo](assets/img/chattypantz.png)
+
 A demo chat server and client written in [Go.](http://golang.org)
+
+
 
 ## About
 
