@@ -83,10 +83,12 @@ func (r *ChatRoom) join(q *ChatRequest) {
 		r.sendResponse(q.Who, ChatRspTypeErrNicknameUsed,
 			fmt.Sprintf(`Nickname "%s" is already in use in room "%s".`, q.Who.nickname, r.name), nil)
 	default:
+		r.mu.Lock()
 		r.chatters[q.Who] = false
 		if q.Content == "hidden" {
 			r.chatters[q.Who] = true
 		}
+		r.mu.Unlock()
 		r.log.Infof("sendResponseAll")
 		r.sendResponseAll(ChatRspTypeJoin, fmt.Sprintf("%s has joined the room.", q.Who.nickname), nil)
 	}
@@ -152,8 +154,8 @@ type ChatRoomChatterStat struct {
 	RemoteAddr string `json:"remoteAddr"` // The remote IP and port of the chatter.
 }
 
-// stats returns status information on the room.
-func (r *ChatRoom) stats() *ChatRoomStats {
+// ChatRoomStatsNew returns status information on the room.
+func (r *ChatRoom) ChatRoomStatsNew() *ChatRoomStats {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	s := &ChatRoomStats{
@@ -166,7 +168,7 @@ func (r *ChatRoom) stats() *ChatRoomStats {
 		Chatters: []*ChatRoomChatterStat{},
 	}
 	for c := range r.chatters {
-		st := c.stats()
+		st := c.ChatterStatsNew()
 		s.Chatters = append(s.Chatters, &ChatRoomChatterStat{
 			Nickname:   st.Nickname,
 			RemoteAddr: st.RemoteAddr,

@@ -195,7 +195,7 @@ func (s *Server) statsHandler(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 	s.stats.ChatterStats = []*ChatterStats{}
 	for c := range s.chatters {
-		s.stats.ChatterStats = append(s.stats.ChatterStats, c.stats())
+		s.stats.ChatterStats = append(s.stats.ChatterStats, c.ChatterStatsNew())
 	}
 	s.stats.RoomStats = s.roomMngr.getRoomStats()
 	mStats := &runtime.MemStats{}

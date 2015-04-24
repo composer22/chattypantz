@@ -40,7 +40,7 @@ Description: chattypantz is a chat server allowing clients to text each other wi
 Usage: chattypantz [options...]
 
 Server options:
-    -N, --name NAME                  NAME of the server (default: empty field).
+    -N, --name NAME                  NAME of the server (default: empty).
     -H, --hostname HOSTNAME          HOSTNAME of the server (default: localhost).
     -p, --port PORT                  PORT to listen on (default: 6660).
 	-L, --profiler_port PORT         *PORT the profiler is listening on (default: off).
