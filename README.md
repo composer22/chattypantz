@@ -4,6 +4,8 @@
 [![Current Release](https://img.shields.io/badge/release-v0.1.0-brightgreen.svg)](https://github.com/composer22/chattypantz/releases/tag/v0.1.0)
 [![Coverage Status](https://coveralls.io/repos/composer22/chattypantz/badge.svg?branch=master)](https://coveralls.io/r/composer22/chattypantz?branch=master)
 
+![chattypantz-logo](assets/img/chattypantz.png)
+
 A demo chat server and client written in [Go.](http://golang.org)
 
 ## About
@@ -15,20 +17,20 @@ Some key objectives in this demonstration:
 * Clients connect to the server on ws://{host:port}
 * Messages sent by a client are broadcasted to other clients connected to the same chat room.
 * The server only supports JSON text messages. Binary websocket frames will be discarded and the clients sending those frames will be disconnected with a message.
-* When a client connects to a chat room, the server broadcasts "{nickname} joined the room." to clients that were already connected to the same chat room.
+* When a client connects to a chat room, the server broadcasts "{nickname} has joined the room." to clients that were already connected to the same chat room.
 * When a client disconnects, the server broadcasts "{nickname} has left the room." to clients connected to the same chat room.
 * An unlimited amount of chat rooms can be created on the server (unless it runs out of memory or file descriptors).
 * An unlimited amount of clients can join each chat room on the server (unless it runs out of memory or file descriptors).
+* Only one connection per unique nickname allowed per chat room.
+* The server should provide an optional idle timeout setting.  If a user doesn't interact withing n-seconds, the user should be automatically disconnected.
+* The server should provide an optional parameter to limit connections to the server.
+* The server should provide an optional parameter to limit the number of rooms created.
+* Heartbeat (alive) and statistics should be provided via http:// API endpoints.
 
-Additional objectives:
+Future objectives:
 
-* Only one connection per nickname allowed per chat room.
-* The server should provide an idle timeout setting.  If a user doesn't interact withing n-seconds, the user should be automatically disconnected.
-* The server should provide a parameter to limit connections and number of rooms.
-* Alive and statistics should be provided by http:// API endpoints.
-* Chat history for each room should be stored in a file for each chat. When the user logs in to a room, the history should be provided to the client. A max history option should be provided.
-
-For TODOs, please see TODO.md
+* Chat history for each room should be stored in a file. When the user logs in to a room, the history should be provided to the client. A max history option should be provided.
+* More sophisticated client example code in html and js.
 
 ## Usage
 
@@ -44,7 +46,6 @@ Server options:
 	-L, --profiler_port PORT         *PORT the profiler is listening on (default: off).
     -n, --connections MAX            *MAX client connections allowed (default: unlimited).
     -r, --rooms MAX                  *MAX chatrooms allowed (default: unlimited).
-    -y, --history MAX                *MAX num of history records per room (default: 15).
     -i, --idle MAX                   *MAX idle time in seconds allowed (default: unlimited).
     -X, --procs MAX                  *MAX processor cores to use from the machine.
 
@@ -94,9 +95,10 @@ Spaces must be encoded in JSON calls.
 # ChatReqTypeListRooms = 103
 /send {"reqType":103}
 
-# Join a room or join a room with hidden name.
+# Join a room
 # ChatReqTypeJoin = 104
 /send {"roomName":"Your\ Room","reqType":104}
+# or join a room with hidden name.
 /send {"roomName":"Your\ Room","reqType":104,"content":"hidden"}
 
 # Get a list of nicknames in a room.
@@ -148,9 +150,7 @@ Date: Fri, 03 Apr 2015 17:29:17 +0000
 Server: San Francisco
 X-Request-Id: DC8D9C2E-8161-4FC0-937F-4CA7037970D5
 Content-Length: 0
-
 ```
-
 ## Building
 
 This code currently requires version 1.42 or higher of Go.
@@ -176,9 +176,10 @@ A prebuilt docker image is available at (http://www.docker.com) [chattypantz](ht
 If you have docker installed, run:
 ```
 docker pull composer22/chattypantz:latest
+or
+docker pull composer22/chattypantz:<version>
 ```
 See /docker directory README for more information on how to run it.
-
 
 ## License
 

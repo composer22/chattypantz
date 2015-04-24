@@ -9,9 +9,10 @@ import (
 // ChatRoomManager represents a hub of chat rooms for the server.
 type ChatRoomManager struct {
 	rooms    map[string]*ChatRoom // A list of rooms on the server.
-	maxRooms int                  // Maximum number of rooms allowed to be created
+	maxRooms int                  // Maximum number of rooms allowed to be created.
 	log      *ChatLogger          // Application log for events.
-	wg       sync.WaitGroup       // Synchronizer for manager reqq
+	wg       sync.WaitGroup       // Synchronizer for manager reqq.
+	mu       sync.Mutex           // Lock for update.
 }
 
 // ChatRoomManagerNew is a factory function that returns a new instance of a chat room manager.
@@ -25,6 +26,8 @@ func ChatRoomManagerNew(n int, cl *ChatLogger) *ChatRoomManager {
 
 // list returns a list of chat room names.
 func (m *ChatRoomManager) list() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	var names []string
 	for n := range m.rooms {
 		names = append(names, n)
@@ -34,7 +37,9 @@ func (m *ChatRoomManager) list() []string {
 
 // find will find a chat room for a given name.
 func (m *ChatRoomManager) find(n string) (*ChatRoom, error) {
+	m.mu.Lock()
 	r, ok := m.rooms[n]
+	m.mu.Unlock()
 	if !ok {
 		return nil, errors.New(fmt.Sprintf(`Chatroom "%s" not found.`, n))
 	}
@@ -49,8 +54,10 @@ func (m *ChatRoomManager) findCreate(n string) (*ChatRoom, error) {
 			return nil, errors.New("Maximum number of rooms reached. Cannot create new room.")
 		}
 		r = ChatRoomNew(n, m.log, &m.wg)
+		m.mu.Lock()
 		m.rooms[n] = r
 		m.wg.Add(1)
+		m.mu.Unlock()
 		go r.Run()
 	}
 	return r, nil
@@ -58,6 +65,8 @@ func (m *ChatRoomManager) findCreate(n string) (*ChatRoom, error) {
 
 // removeChatterAllRooms releases the chatter from any rooms.
 func (m *ChatRoomManager) removeChatterAllRooms(c *Chatter) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	for _, r := range m.rooms {
 		if q, err := ChatRequestNew(c, r.name, ChatReqTypeLeave, ""); err == nil {
 			r.reqq <- q
@@ -67,6 +76,8 @@ func (m *ChatRoomManager) removeChatterAllRooms(c *Chatter) {
 
 // getRoomStats returns statistics from each room.
 func (m *ChatRoomManager) getRoomStats() []*ChatRoomStats {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	var s = []*ChatRoomStats{}
 	for _, r := range m.rooms {
 		s = append(s, r.stats())
@@ -76,6 +87,8 @@ func (m *ChatRoomManager) getRoomStats() []*ChatRoomStats {
 
 // shutDownRooms releases all rooms from processing and memory.
 func (m *ChatRoomManager) shutDownRooms() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	// Close the channel which signals a stop run
 	for _, r := range m.rooms {
 		close(r.reqq)

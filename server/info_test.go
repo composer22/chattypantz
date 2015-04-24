@@ -9,7 +9,7 @@ import (
 const (
 	testInfoExpectedJSONResult = `{"version":"9.8.7","name":"Test Server","hostname":"0.0.0.0",` +
 		`"UUID":"ABCDEFGHIJKLMNOPQRSTUVWXYZ","port":6661,"profPort":6061,"maxConns":999,` +
-		`"maxRooms":888,"maxHistory":777,"maxIdle":666,"debugEnabled":true}`
+		`"maxRooms":888,"maxIdle":777,"debugEnabled":true}`
 )
 
 func TestInfoNew(t *testing.T) {
@@ -22,8 +22,7 @@ func TestInfoNew(t *testing.T) {
 		i.ProfPort = 6061
 		i.MaxConns = 999
 		i.MaxRooms = 888
-		i.MaxHistory = 777
-		i.MaxIdle = 666
+		i.MaxIdle = 777
 		i.Debug = true
 	})
 	tp := reflect.TypeOf(info)
@@ -55,8 +54,7 @@ func TestInfoString(t *testing.T) {
 		i.ProfPort = 6061
 		i.MaxConns = 999
 		i.MaxRooms = 888
-		i.MaxHistory = 777
-		i.MaxIdle = 666
+		i.MaxIdle = 777
 		i.Debug = true
 	})
 	actual := fmt.Sprint(info)

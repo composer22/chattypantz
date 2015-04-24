@@ -129,33 +129,50 @@ func (r *ChatRoom) message(q *ChatRequest) {
 // leave removes the chatter from the room and notifies the group the chatter has left.
 func (r *ChatRoom) leave(q *ChatRequest) {
 	name := q.Who.nickname
+	r.mu.Lock()
 	delete(r.chatters, q.Who)
+	r.mu.Unlock()
 	r.sendResponse(q.Who, ChatRspTypeLeave, fmt.Sprintf(`You have left room "%s".`, r.name), nil)
 	r.sendResponseAll(ChatRspTypeLeave, fmt.Sprintf("%s has left the room.", name), nil)
 }
 
 // ChatRoomStats is a simple structure for returning statistic information on the room.
 type ChatRoomStats struct {
-	Name     string    `json:"name"`     // The name of the room.
-	Start    time.Time `json:"start"`    // The start time of the room.
-	LastReq  time.Time `json:"lastReq"`  // The last request time to the room.
-	LastRsp  time.Time `json:"lastRsp"`  // The last response time from the room.
-	ReqCount uint64    `json:"reqcount"` // Total requests received.
-	RspCount uint64    `json:"rspCount"` // Total responses sent.
+	Name     string                 `json:"name"`     // The name of the room.
+	Start    time.Time              `json:"start"`    // The start time of the room.
+	LastReq  time.Time              `json:"lastReq"`  // The last request time to the room.
+	LastRsp  time.Time              `json:"lastRsp"`  // The last response time from the room.
+	ReqCount uint64                 `json:"reqcount"` // Total requests received.
+	RspCount uint64                 `json:"rspCount"` // Total responses sent.
+	Chatters []*ChatRoomChatterStat `json:"chatters"` // Stats on chatters in the room
+}
+
+type ChatRoomChatterStat struct {
+	Nickname   string `json:"nickname"`   // The nickname of the chatter.
+	RemoteAddr string `json:"remoteAddr"` // The remote IP and port of the chatter.
 }
 
 // stats returns status information on the room.
 func (r *ChatRoom) stats() *ChatRoomStats {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return &ChatRoomStats{
+	s := &ChatRoomStats{
 		Name:     r.name,
 		Start:    r.start,
 		LastReq:  r.lastReq,
 		LastRsp:  r.lastRsp,
 		ReqCount: r.reqCount,
 		RspCount: r.rspCount,
+		Chatters: []*ChatRoomChatterStat{},
 	}
+	for c := range r.chatters {
+		st := c.stats()
+		s.Chatters = append(s.Chatters, &ChatRoomChatterStat{
+			Nickname:   st.Nickname,
+			RemoteAddr: st.RemoteAddr,
+		})
+	}
+	return s
 }
 
 // isMember validates if the member exists in the room.
@@ -177,6 +194,7 @@ func (r *ChatRoom) isMemberName(n string) bool {
 // sendResponse sends a message to a single chatter in the room.
 func (r *ChatRoom) sendResponse(c *Chatter, rt int, ct string, l []string) {
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.connected {
 		if l == nil {
 			l = []string{}
@@ -189,7 +207,6 @@ func (r *ChatRoom) sendResponse(c *Chatter, rt int, ct string, l []string) {
 			c.rspq <- rsp
 		}
 	}
-	c.mu.Unlock()
 }
 
 // sendResponseAll sends a message to all chatters in the room.

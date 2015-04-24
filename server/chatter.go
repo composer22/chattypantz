@@ -163,7 +163,7 @@ func (c *Chatter) listRooms() {
 // ChatterStats is a simple structure for returning statistic information on the chatter.
 type ChatterStats struct {
 	Nickname   string    `json:"nickname"`   // The nickname of the chatter.
-	RemoteAddr string    `json:"remoteAddr"` // The remote IP and port of the chatter
+	RemoteAddr string    `json:"remoteAddr"` // The remote IP and port of the chatter.
 	Start      time.Time `json:"start"`      // The start time of the chatter.
 	LastReq    time.Time `json:"lastReq"`    // The last request time from the chatter.
 	LastRsp    time.Time `json:"lastRsp"`    // The last response time to the chatter.
