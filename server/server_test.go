@@ -65,9 +65,15 @@ var (
 	TestServerJoin2   = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName2, ChatReqTypeJoin)
 	TestServerJoin3   = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName3, ChatReqTypeJoin)
 	TestServerJoinExp = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
-		`"content":"%s has joined the room.","list":[]}`, testChatRoomName1, ChatRspTypeJoin, testChatterNickname)
+		`"content":"%s has joined the room.","list":["%s"]}`, testChatRoomName1, ChatRspTypeJoin,
+		testChatterNickname, testChatterNickname)
 	TestServerJoinExp2 = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
-		`"content":"%s has joined the room.","list":[]}`, testChatRoomName2, ChatRspTypeJoin, testChatterNickname)
+		`"content":"%s has joined the room.","list":["%s"]}`, testChatRoomName2, ChatRspTypeJoin,
+		testChatterNickname, testChatterNickname)
+	TestServerJoinExpHidden = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
+		`"content":"%s has joined the room.","list":[]}`, testChatRoomName1, ChatRspTypeJoin,
+		testChatterNickname)
+
 	TestServerJoinExpErr = fmt.Sprintf(`{"roomName":"","rspType":%d,`+
 		`"content":"Room name is mandatory to access a room.","list":[]}`, ChatRspTypeErrRoomMandatory)
 	TestServerJoinExpErrX2 = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
@@ -435,8 +441,8 @@ func TestServerValidWSSession(t *testing.T) {
 		}
 	}
 	result = string(rsp[:n])
-	if result != TestServerJoinExp {
-		t.Errorf("Join room error.\nExpected: %s\n\nActual: %s\n", TestServerJoinExp, result)
+	if result != TestServerJoinExpHidden {
+		t.Errorf("Join room error.\nExpected: %s\n\nActual: %s\n", TestServerJoinExpHidden, result)
 	}
 
 	// Validate again nickname is invisible in list (expect 0)

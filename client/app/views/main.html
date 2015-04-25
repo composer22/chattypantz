@@ -1,0 +1,56 @@
+<!-- login pane -->
+<div ng-hide="chat.status.started">
+    <form name="loginForm" ng-submit="init()">
+        <div class="row login-pane">
+		     <div class="col-md-2">
+                <input type="submit" class="btn btn-sm btn-primary" ng-disabled="loginForm.nickname.$error.required
+                || chat.status.starting" value="Start Chatting!"/>
+            </div>
+            <div class="col-md-10 input-field">
+                <input ng-model="nickname" name="nickname" required type="text" placeholder="Enter your nickname here, then press 'Start Chatting'...">
+                <span class="error" ng-show="loginForm.nickname.$error.required"></span><br>
+            </div>
+
+        </div>
+    </form>
+</div>
+
+<!-- error message -->
+<div ng-show="!chat.status.started && chat.status.error" id="connection-error">
+    <strong>Error:</strong> {{chat.status.error}} <br/>
+    Please try again later...
+</div>
+
+<!-- Chat Connected -->
+<div ng-show="chat.status.started">
+    <div class="row">
+		<div class="col-md-8">
+			<textarea id="chat-history" ng-model="chat.data.history"></textarea>
+		</div>
+		<div class="col-md-4" id="online-user-list">
+			<div>
+				<span class="label label-info">Online Users ({{chat.data.users.length}})</span>
+			</div>
+			<span ng-repeat="nickname in chat.data.users">{{nickname}} <br/></span>
+		</div>
+	 </div>
+
+
+	<div class="clearfix"></div>
+
+    <div class="row chat-bottom">
+        <form name="sendForm" ng-submit="sendButtonClicked()">
+			<div class="col-md-1">
+                <input type="submit" class="btn btn-sm btn-primary send-button" data-ng-disabled="chat.data.messageText == ''" value="Send!"/>
+            </div>
+            <div class="col-md-10">
+                <input class="message" ng-model="chat.data.messageText" name="messageText" type="text" placeholder="Type your message here..">
+            </div>
+            <div class="col-md-1">
+                <input type="button" class="btn btn-sm btn-danger quit-button" ng-click="quit()" value="Quit"/>
+            </div>
+        </form>
+    </div>
+
+    <div class="clearfix"></div>
+</div>
