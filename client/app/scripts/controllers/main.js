@@ -136,7 +136,7 @@ angular.module('chattypantzApp').controller('MainCtrl', function ($scope, $route
     // Connection error.
     $scope.onError = function(e) {
         // Stop run and show err.
-        $scope.chat.status.error = e.reason;
+        $scope.chat.status.error = "Server disconnected: " + e.reason;
         $scope.chat.status.started = false;
         console.log('onerror: ', e);
         $scope.$apply();

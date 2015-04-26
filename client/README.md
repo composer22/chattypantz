@@ -4,12 +4,12 @@ This folder contains a simple demonstration of a client connection to the server
 
 ### Dependencies
 
-* You must be connected to the internet to load CDN angular.js, bootstrap.js, and jquery.js.
+* You must be connected to the internet to load CDN angular.js, semnatic-ui.js, and jquery.js.
 * The server should be running on localhost:6660
 
 ### Instructions
 
-Assumption: server is up and running on localhost:6660. 
+Assumption: server is up and running on localhost:6660.
 
 If needed, you can change the API host and port endpoint in scripts/services/api.js:
 ```
