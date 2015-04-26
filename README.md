@@ -1,7 +1,7 @@
 # chattypantz
 [![License MIT](https://img.shields.io/npm/l/express.svg)](http://opensource.org/licenses/MIT)
 [![Build Status](https://travis-ci.org/composer22/chattypantz.svg?branch=master)](http://travis-ci.org/composer22/chattypantz)
-[![Current Release](https://img.shields.io/badge/release-v0.1.0-brightgreen.svg)](https://github.com/composer22/chattypantz/releases/tag/v0.1.0)
+[![Current Release](https://img.shields.io/badge/release-v0.1.1-brightgreen.svg)](https://github.com/composer22/chattypantz/releases/tag/v0.1.1)
 [![Coverage Status](https://coveralls.io/repos/composer22/chattypantz/badge.svg?branch=master)](https://coveralls.io/r/composer22/chattypantz?branch=master)
 
 ![chattypantz-logo](assets/img/chattypantz.png)
@@ -10,7 +10,7 @@ A demo chat server and client written in [Go.](http://golang.org)
 
 ## About
 
-This is a small server and client that demonstrates some Golang network socket functions and features.
+This is a small chat server and client that demonstrates Golang network socket functions and features.
 
 Some key objectives in this demonstration:
 
@@ -18,6 +18,8 @@ Some key objectives in this demonstration:
 * Messages sent by a client are broadcasted to other clients connected to the same chat room.
 * The server only supports JSON text messages. Binary websocket frames will be discarded and the clients sending those frames will be disconnected with a message.
 * When a client connects to a chat room, the server broadcasts "{nickname} has joined the room." to clients that were already connected to the same chat room.
+* Clients should be able to join multiple rooms at the same time.
+* A client can join a room as "hidden".  When in "hidden" mode, the client can monitor room messages but cannot send messages. A client should be able to change this setting as needed.
 * When a client disconnects, the server broadcasts "{nickname} has left the room." to clients connected to the same chat room.
 * An unlimited amount of chat rooms can be created on the server (unless it runs out of memory or file descriptors).
 * An unlimited amount of clients can join each chat room on the server (unless it runs out of memory or file descriptors).
@@ -30,7 +32,6 @@ Some key objectives in this demonstration:
 Future objectives:
 
 * Chat history for each room should be stored in a file. When the user logs in to a room, the history should be provided to the client. A max history option should be provided.
-* More sophisticated client example code in html and js.
 
 ## Usage
 
@@ -63,8 +64,11 @@ Examples:
 	# 10 clients; 50 rooms; one hour idle allowed; 2 processors
     chattypantz -N "San Francisco" -H 0.0.0.0 -p 6661 -n 10 -r 50 -i 3600 -X 2
 
+	# or simply:
+	chattypantz -N "San Francisco"
+
 ```
-## Client Connection and demonstration
+## Client Connection Specifications
 
 The socket connection endpoint is:
 ```
@@ -119,6 +123,10 @@ Spaces must be encoded in JSON calls.
 /disconnect
 
 ```
+
+A client javascript/html demo is provided under the /client directory.
+Please see that directories README.md for more information.
+
 ## HTTP API for Alive and Stats
 
 Two additional API routes are provided:
@@ -170,8 +178,12 @@ A prebuilt docker image is available at (http://www.docker.com) [chattypantz](ht
 If you have docker installed, run:
 ```
 docker pull composer22/chattypantz:latest
+
 or
+
 docker pull composer22/chattypantz:<version>
+
+if available.
 ```
 See /docker directory README for more information on how to run it.
 

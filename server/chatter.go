@@ -55,7 +55,7 @@ func (c *Chatter) Run() {
 // receive polls and handles any commands or information sent from the remote client.
 func (c *Chatter) receive() {
 	defer c.srvr.wg.Done()
-	remoteAddr := fmt.Sprint(c.ws.Request().RemoteAddr)
+	remoteAddr := c.ws.Request().RemoteAddr
 	for {
 		// Set optional idle timeout on the receive.
 		if c.srvr.info.MaxIdle > 0 {
@@ -71,7 +71,7 @@ func (c *Chatter) receive() {
 			case err.Error() == "EOF":
 				c.srvr.log.LogSession("disconnected", remoteAddr, "Client disconnected.")
 				c.shutDown()
-			case strings.Contains(err.Error(), "use of closed network connection"): // cntl-c safelty.
+			case strings.Contains(err.Error(), "use of closed network connection"): // cntl-c safety.
 				c.shutDown()
 			default:
 				c.srvr.log.LogError(remoteAddr, fmt.Sprintf("Couldn't receive. Error: %s", err.Error()))
@@ -97,7 +97,7 @@ func (c *Chatter) receive() {
 	}
 }
 
-// send is a go routine used to poll queued messages to send information to the client.
+// send is a go routine used to poll queued messages to send to the client.
 func (c *Chatter) send() {
 	defer c.wg.Done()
 	remoteAddr := fmt.Sprint(c.ws.Request().RemoteAddr)
