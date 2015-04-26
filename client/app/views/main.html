@@ -1,0 +1,53 @@
+<!-- login pane -->
+<div ng-hide="chat.status.started">
+   <form class="ui error form" name="loginForm" ng-submit="init()">
+       <div class="ui page grid">
+	     <div class="three wide column">
+               <input type="submit" class="ui primary submit button" ng-disabled="loginForm.nickname.$error.required
+               || chat.status.starting" value="Start Chatting!"/>
+           </div>
+           <div class="ten wide column field">
+               <input ng-model="nickname" name="nickname" required type="text"
+			    placeholder="Enter your nickname and press the 'Start Chatting!' button..."/>
+           </div>
+       </div>
+
+		<!-- error message -->
+		<div class="ui page grid">
+			<div class="ui error message center aligned thirteen wide column" ng-show="chat.status.error" id="connection-error">
+			    <strong>Error:</strong><br>
+				{{chat.status.error}} <br/>
+			    Please try again later...
+			</div>
+		</div>
+	</form>
+</div>
+
+<!-- Chat Connected -->
+<div ng-show="chat.status.started">
+    <div class="ui page grid">
+		<div class="twelve wide column">
+			<textarea id="chat-history" ng-model="chat.data.history"></textarea>
+		</div>
+		<div class="four wide column" id="online-user-list">
+				<a class="ui teal ribbon label">Online Users ({{chat.data.users.length}})</a><br>
+			<span ng-repeat="nickname in chat.data.users">{{nickname}} <br/></span>
+		</div>
+	 </div>
+
+     <form class="ui form" name="sendForm" ng-submit="sendButtonClicked()">
+	  <div class="ui page grid">
+	       	 <div class="two wide column">
+				<input type="submit" class="ui submit button primary"
+		      data-ng-disabled="chat.data.messageText == ''" value="Send!"/>
+			</div>
+			<div class="eight wide column field">
+				<input class="message" ng-model="chat.data.messageText" name="messageText"
+		         type="text" placeholder="Type message here...">
+			</div>
+			<div class="two wide column">
+          		 <input type="button" class="ui mini red button" ng-click="quit()" value="Quit"/>
+     		</div>
+	  </div>
+	</form>
+</div>

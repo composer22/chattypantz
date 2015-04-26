@@ -88,9 +88,14 @@ func (r *ChatRoom) join(q *ChatRequest) {
 		if q.Content == "hidden" {
 			r.chatters[q.Who] = true
 		}
+		var names []string
+		for c, hidden := range r.chatters {
+			if !hidden { // don't return hidden names.
+				names = append(names, c.Nickname())
+			}
+		}
 		r.mu.Unlock()
-		r.log.Infof("sendResponseAll")
-		r.sendResponseAll(ChatRspTypeJoin, fmt.Sprintf("%s has joined the room.", q.Who.Nickname()), nil)
+		r.sendResponseAll(ChatRspTypeJoin, fmt.Sprintf("%s has joined the room.", q.Who.Nickname()), names)
 	}
 }
 
@@ -140,11 +145,17 @@ func (r *ChatRoom) message(q *ChatRequest) {
 // leave removes the chatter from the room and notifies the group the chatter has left.
 func (r *ChatRoom) leave(q *ChatRequest) {
 	name := q.Who.Nickname()
+	var names []string
 	r.mu.Lock()
 	delete(r.chatters, q.Who)
+	for c, hidden := range r.chatters {
+		if !hidden { // don't return hidden names.
+			names = append(names, c.Nickname())
+		}
+	}
 	r.mu.Unlock()
 	r.sendResponse(q.Who, ChatRspTypeLeave, fmt.Sprintf(`You have left room "%s".`, r.name), nil)
-	r.sendResponseAll(ChatRspTypeLeave, fmt.Sprintf("%s has left the room.", name), nil)
+	r.sendResponseAll(ChatRspTypeLeave, fmt.Sprintf("%s has left the room.", name), names)
 }
 
 // ChatRoomStats is a simple structure for returning statistic information on the room.
