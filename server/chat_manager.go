@@ -58,8 +58,9 @@ func (m *ChatManager) find(n string) (*ChatRoom, error) {
 func (m *ChatManager) findCreate(n string) (*ChatRoom, error) {
 	r, err := m.find(n)
 	if err != nil {
+		mr := m.MaxRooms()
 		m.mu.Lock() // cover rooms
-		if m.maxRooms > 0 && m.maxRooms == len(m.rooms) {
+		if mr > 0 && mr == len(m.rooms) {
 			m.mu.Unlock()
 			return nil, errors.New("Maximum number of rooms reached. Cannot create new room.")
 		}
@@ -72,7 +73,7 @@ func (m *ChatManager) findCreate(n string) (*ChatRoom, error) {
 	return r, nil
 }
 
-// removeChatterAllRooms releases the chatter from any rooms.
+// removeChatterAllRooms sends a broadcast to all rooms to release the chatter.
 func (m *ChatManager) removeChatterAllRooms(c *Chatter) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -98,7 +99,7 @@ func (m *ChatManager) getRoomStats() []*ChatRoomStats {
 func (m *ChatManager) registerNewChatter(ws *websocket.Conn) *Chatter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	c := ChatterNew(m, ws, m.maxIdle, m.log)
+	c := ChatterNew(m, ws, m.log)
 	m.chatters[c] = true
 	return c
 }
@@ -123,10 +124,38 @@ func (m *ChatManager) unregisterChatter(c *Chatter) {
 	}
 }
 
-// Shuts down the chatters and the rooms.
+// Shuts down the chatters and the rooms. Used by server on quit.
 func (m *ChatManager) shutdownAll() {
 	close(m.done)
 	m.wg.Wait()
 	m.rooms = make(map[string]*ChatRoom)
 	m.chatters = make(map[*Chatter]bool)
+}
+
+// MaxRooms returns the current maximum number of rooms allowed on the server.
+func (m *ChatManager) MaxRooms() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.maxRooms
+}
+
+// SetMaxRooms sets the maximum number of rooms allowed on the server.
+func (m *ChatManager) SetMaxRooms(mr int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.maxRooms = mr
+}
+
+// MaxIdle returns the current maximum idle time for a connection.
+func (m *ChatManager) MaxIdle() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.maxIdle
+}
+
+// SetMaxIdle sets the maximum idle time for a connection.
+func (m *ChatManager) SetMaxIdle(mi int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.maxIdle = mi
 }

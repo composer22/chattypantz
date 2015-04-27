@@ -226,17 +226,11 @@ func (r *ChatRoom) sendResponse(c *Chatter, rt int, ct string, l []string) {
 	if l == nil {
 		l = []string{}
 	}
-	if rsp, err := ChatResponseNew(r.name, rt, ct, l); err == nil {
-		select {
-		case <-c.done:
-		default:
-			c.rspq <- rsp
-			r.mu.Lock()
-			r.lastRsp = time.Now()
-			r.rspCount++
-			r.mu.Unlock()
-		}
-	}
+	c.sendResponse(r.name, rt, ct, l)
+	r.mu.Lock()
+	r.lastRsp = time.Now()
+	r.rspCount++
+	r.mu.Unlock()
 }
 
 // sendResponseAll sends a message to all chatters in the room.
@@ -244,18 +238,11 @@ func (r *ChatRoom) sendResponseAll(rt int, ct string, l []string) {
 	if l == nil {
 		l = []string{}
 	}
-
-	if rsp, err := ChatResponseNew(r.name, rt, ct, l); err == nil {
-		r.mu.Lock()
-		for c := range r.chatters {
-			select {
-			case <-c.done:
-			default:
-				c.rspq <- rsp
-				r.lastRsp = time.Now()
-				r.rspCount++
-			}
-		}
-		r.mu.Unlock()
+	r.mu.Lock()
+	for c := range r.chatters {
+		c.sendResponse(r.name, rt, ct, l)
+		r.lastRsp = time.Now()
+		r.rspCount++
 	}
+	r.mu.Unlock()
 }

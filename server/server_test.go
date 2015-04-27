@@ -202,6 +202,7 @@ func TestServerValidWSSession(t *testing.T) {
 	if result != TestServerGetNicknameExp {
 		t.Errorf("Get Nickname error.\nExpected: %s\n\nActual: %s\n", TestServerGetNicknameExp, result)
 	}
+
 	// Get List of Rooms (0 rooms)
 	tTestIncrChatterStats()
 	if _, err := ws.Write([]byte(TestServerListRooms)); err != nil {
@@ -467,7 +468,7 @@ func TestServerValidWSSession(t *testing.T) {
 	}
 
 	// Leave the room
-	rm, _ := testSrvr.roomMngr.find(testChatRoomName1) // hold onto the chatter for later stat tests
+	rm, _ := testSrvr.cMngr.find(testChatRoomName1) // hold onto the chatter for later stat tests
 	var ch *Chatter
 	for k := range rm.chatters {
 		ch = k
@@ -543,7 +544,6 @@ func TestServerValidWSSession(t *testing.T) {
 }
 
 func TestServerWSErrorSession(t *testing.T) {
-
 	var rsp = make([]byte, 1024)
 	var n int
 	ws1, err := websocket.Dial(testSrvrURL, "", testSrvrOrg)
@@ -710,7 +710,8 @@ func TestServerWSErrorSession(t *testing.T) {
 			TestServerMsgExpErrHide, result)
 	}
 
-	// Nickname already used in room should prevent joining. User 2 joins room 1 w/ same name User 1
+	// Nickname already used in room should prevent joining. User 2 joins room 1 w/ same
+	// name User 1
 	if _, err := ws2.Write([]byte(TestServerJoin)); err != nil {
 		if err != nil {
 			t.Errorf("Websocket send error: %s", err)
