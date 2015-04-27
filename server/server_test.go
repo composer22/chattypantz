@@ -808,6 +808,12 @@ func TestServerWSErrorSession(t *testing.T) {
 	}
 
 	// Should not be able to grow room limitation.
+	testSrvr.cMngr.SetMaxRooms(2)
+	n = testSrvr.cMngr.MaxRooms()
+	if n != 2 {
+		t.Errorf("Set/Get Max Room Error.\nExpected: 2\n\nActual: %d\n", n)
+	}
+
 	if _, err := ws1.Write([]byte(TestServerJoin2)); err != nil {
 		if err != nil {
 			t.Errorf("Websocket send error: %s", err)
@@ -845,7 +851,11 @@ func TestServerWSErrorSession(t *testing.T) {
 	}
 
 	// Test Max timeout
-	testSrvr.info.MaxIdle = 3 // Set to 3 seconds
+	testSrvr.cMngr.SetMaxIdle(3) // Set to 3 seconds
+	n = testSrvr.cMngr.MaxIdle()
+	if n != 3 {
+		t.Errorf("Set/Get Max Idle time Error.\nExpected: 3\n\nActual: %d\n", n)
+	}
 	// Now, send a command to enable the new MaxIdle
 	if _, err := ws1.Write([]byte(TestServerListRooms)); err != nil {
 		if err != nil {
@@ -866,7 +876,7 @@ func TestServerWSErrorSession(t *testing.T) {
 			t.Errorf("Websocket should have been closed.")
 		}
 	}
-	testSrvr.info.MaxIdle = 0 // Reset
+	testSrvr.cMngr.SetMaxIdle(0) // Reset
 }
 
 func TestHTTPRoutes(t *testing.T) {
