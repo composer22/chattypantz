@@ -135,7 +135,7 @@ func (s *Server) Shutdown() {
 		return
 	}
 	s.log.Infof("BEGIN server service stop.")
-	s.log.Infof("\tShutting down chatters and rooms...")
+	s.log.Infof("Shutting down chatters and rooms...")
 	s.cMngr.shutdownAll()
 	s.mu.Lock()
 	s.running = false
