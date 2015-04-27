@@ -128,8 +128,10 @@ func (m *ChatManager) unregisterChatter(c *Chatter) {
 func (m *ChatManager) shutdownAll() {
 	close(m.done)
 	m.wg.Wait()
+	m.mu.Lock()
 	m.rooms = make(map[string]*ChatRoom)
 	m.chatters = make(map[*Chatter]bool)
+	m.mu.Unlock()
 }
 
 // MaxRooms returns the current maximum number of rooms allowed on the server.
