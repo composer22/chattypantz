@@ -23,17 +23,15 @@ import (
 
 // Server is the main structure that represents a server instance.
 type Server struct {
-	info     *Info             // Basic server information used to run the server.
-	opts     *Options          // Original options used to create the server.
-	stats    *Stats            // Server statistics since it started.
-	mu       sync.Mutex        // For locking access to server attributes.
-	running  bool              // Is the server running?
-	log      *ChatLogger       // Log instance for recording error and other messages.
-	roomMngr *ChatRoomManager  // Manager of chat rooms.
-	chatters map[*Chatter]bool // A list of chatters connected to the server.
-	done     chan bool         // A channel to signal to web socked to close.
-	srvr     *http.Server      // HTTP server.
-	wg       sync.WaitGroup    // Synchronization of channel close.
+	info    *Info        // Basic server information used to run the server.
+	opts    *Options     // Original options used to create the server.
+	stats   *Stats       // Server statistics since it started.
+	mu      sync.Mutex   // For locking access to server attributes.
+	running bool         // Is the server running?
+	log     *ChatLogger  // Log instance for recording error and other messages.
+	cMngr   *ChatManager // Manager of chatters and chat rooms.
+	done    chan bool    // A channel to signal to web socked to close.
+	srvr    *http.Server // HTTP server.
 }
 
 // New is a factory function that returns a new server instance.
@@ -49,11 +47,10 @@ func New(ops *Options) *Server {
 			i.MaxIdle = ops.MaxIdle
 			i.Debug = ops.Debug
 		}),
-		opts:     ops,
-		stats:    StatsNew(),
-		log:      ChatLoggerNew(),
-		chatters: map[*Chatter]bool{},
-		running:  false,
+		opts:    ops,
+		stats:   StatsNew(),
+		log:     ChatLoggerNew(),
+		running: false,
 	}
 
 	if s.info.Debug {
@@ -68,8 +65,8 @@ func New(ops *Options) *Server {
 		Addr: fmt.Sprintf("%s:%d", s.info.Hostname, s.info.Port),
 	}
 
-	s.roomMngr = ChatRoomManagerNew(s.info.MaxRooms, s.log) // Set the manager of the chat rooms
-	s.handleSignals()                                       // Evoke trap signals handler
+	s.cMngr = ChatManagerNew(s.info.MaxRooms, s.info.MaxIdle, s.log)
+	s.handleSignals()
 	return s
 }
 
@@ -106,7 +103,6 @@ func (s *Server) Start() error {
 	}
 
 	s.stats.Start = time.Now()
-	s.done = make(chan bool)
 	s.running = true
 	s.mu.Unlock()
 	err = s.srvr.Serve(ln)
@@ -139,15 +135,11 @@ func (s *Server) Shutdown() {
 		return
 	}
 	s.log.Infof("BEGIN server service stop.")
-
+	s.log.Infof("\tShutting down chatters and rooms...")
+	s.cMngr.shutdownAll()
 	s.mu.Lock()
-	s.log.Infof("\tShutting down chatters...")
-	close(s.done)
 	s.running = false
 	s.mu.Unlock()
-	s.wg.Wait()
-	s.log.Infof("\tShutting down rooms...")
-	s.roomMngr.shutDownRooms()
 	s.log.Infof("END server service stop.")
 }
 
@@ -169,14 +161,9 @@ func (s *Server) handleSignals() {
 func (s *Server) chatHandler(ws *websocket.Conn) {
 	s.log.LogConnect(ws.Request())
 	s.incrementStats(ws.Request())
-	c := ChatterNew(s, ws)
-	s.mu.Lock()
-	s.chatters[c] = true // register chatter
-	s.mu.Unlock()
+	c := s.cMngr.registerNewChatter(ws)
 	c.Run()
-	s.mu.Lock()
-	delete(s.chatters, c) // unregister chatter
-	s.mu.Unlock()
+	s.cMngr.unregisterChatter(c)
 }
 
 // aliveHandler handles a client http:// "is the server alive?" request.
@@ -193,11 +180,8 @@ func (s *Server) statsHandler(w http.ResponseWriter, r *http.Request) {
 	s.initResponseHeader(w)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.stats.ChatterStats = []*ChatterStats{}
-	for c := range s.chatters {
-		s.stats.ChatterStats = append(s.stats.ChatterStats, c.ChatterStatsNew())
-	}
-	s.stats.RoomStats = s.roomMngr.getRoomStats()
+	s.stats.ChatterStats = s.cMngr.getChatterStats()
+	s.stats.RoomStats = s.cMngr.getRoomStats()
 	mStats := &runtime.MemStats{}
 	runtime.ReadMemStats(mStats)
 	b, _ := json.Marshal(

@@ -21,17 +21,19 @@ type ChatRoom struct {
 	reqCount uint64            // Total requests received.
 	rspCount uint64            // Total responses sent.
 	reqq     chan *ChatRequest // Channel to receive requests.
+	done     chan bool         // Channel to receive signal to shutdown now.
 	log      *ChatLogger       // Application log for events.
 	mu       sync.Mutex        // Lock against stats.
 	wg       *sync.WaitGroup   // Wait group for the run from the chat room manager.
 }
 
 // ChatRoomNew is a factory function that returns a new instance of a chat room.
-func ChatRoomNew(n string, cl *ChatLogger, g *sync.WaitGroup) *ChatRoom {
+func ChatRoomNew(n string, d chan bool, cl *ChatLogger, g *sync.WaitGroup) *ChatRoom {
 	return &ChatRoom{
 		name:     n,
 		chatters: make(map[*Chatter]bool),
 		reqq:     make(chan *ChatRequest, maxChatRoomReq),
+		done:     d,
 		log:      cl,
 		wg:       g,
 	}
@@ -43,6 +45,8 @@ func (r *ChatRoom) Run() {
 	r.start = time.Now()
 	for {
 		select {
+		case <-r.done: // Server signal quit
+			return
 		case req, ok := <-r.reqq:
 			if !ok { // Assume ch closed and shutdown notification
 				return
@@ -219,16 +223,18 @@ func (r *ChatRoom) isMemberName(n string) bool {
 
 // sendResponse sends a message to a single chatter in the room.
 func (r *ChatRoom) sendResponse(c *Chatter, rt int, ct string, l []string) {
-	if c.isConnected() {
-		if l == nil {
-			l = []string{}
-		}
-		if rsp, err := ChatResponseNew(r.name, rt, ct, l); err == nil {
+	if l == nil {
+		l = []string{}
+	}
+	if rsp, err := ChatResponseNew(r.name, rt, ct, l); err == nil {
+		select {
+		case <-c.done:
+		default:
+			c.rspq <- rsp
 			r.mu.Lock()
 			r.lastRsp = time.Now()
 			r.rspCount++
 			r.mu.Unlock()
-			c.rspq <- rsp
 		}
 	}
 }
@@ -238,13 +244,16 @@ func (r *ChatRoom) sendResponseAll(rt int, ct string, l []string) {
 	if l == nil {
 		l = []string{}
 	}
+
 	if rsp, err := ChatResponseNew(r.name, rt, ct, l); err == nil {
 		r.mu.Lock()
 		for c := range r.chatters {
-			if c.isConnected() {
+			select {
+			case <-c.done:
+			default:
+				c.rspq <- rsp
 				r.lastRsp = time.Now()
 				r.rspCount++
-				c.rspq <- rsp
 			}
 		}
 		r.mu.Unlock()
