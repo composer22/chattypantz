@@ -44,6 +44,7 @@ func ChatterNew(cm *ChatManager, c *websocket.Conn, mi int, l *ChatLogger) *Chat
 		maxIdle: mi,
 		done:    make(chan bool, 1),
 		rspq:    make(chan *ChatResponse, maxChatterRsp),
+		log:     l,
 	}
 }
 
