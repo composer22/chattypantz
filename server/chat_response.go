@@ -20,11 +20,11 @@ const (
 const (
 	ChatRspTypeErrRoomMandatory = 1001 + iota
 	ChatRspTypeErrMaxRoomsReached
+	ChatRspTypeErrRoomUnavailable
 	ChatRspTypeErrNicknameMandatory
 	ChatRspTypeErrAlreadyJoined
 	ChatRspTypeErrNicknameUsed
 	ChatRspTypeErrHiddenNickname
-	ChatRspTypeErrNotInRoom
 	ChatRspTypeErrUnknownReq
 )
 

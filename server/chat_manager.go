@@ -2,10 +2,16 @@ package server
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 
 	"golang.org/x/net/websocket"
+)
+
+var (
+	chatManagerErrMaxRooms     = errors.New("maximum number of rooms reached")
+	chatManagerErrRoomExists   = errors.New("room already exists")
+	chatManagerErrRoomNotEmpty = errors.New("room is not empty")
+	chatManagerErrRoomNotFound = errors.New("chatroom not found")
 )
 
 // ChatManager represents a control hub of chat rooms and chatters for the server.
@@ -50,29 +56,76 @@ func (m *ChatManager) find(name string) (*ChatRoom, error) {
 	rm, ok := m.rooms[name]
 	m.mu.RUnlock()
 	if !ok {
-		return nil, errors.New(fmt.Sprintf(`Chatroom "%s" not found.`, name))
+		return nil, chatManagerErrRoomNotFound
 	}
 	return rm, nil
 }
 
 // findCreate returns a chat room for a given name or create a new one.
-func (m *ChatManager) findCreate(n string) (*ChatRoom, error) {
-	r, err := m.find(n)
+func (m *ChatManager) findCreate(name string) (*ChatRoom, error) {
+	room, err := m.find(name)
 	if err == nil {
-		return r, err
+		return room, nil
 	}
-	mr := m.MaxRooms()
+	return m.createRoom(name)
+}
+
+// createRoom returns a new chat room,
+func (m *ChatManager) createRoom(name string) (*ChatRoom, error) {
+	_, err := m.find(name)
+	if err == nil {
+		return nil, chatManagerErrRoomExists
+	}
+	maxr := m.MaxRooms()
 	m.mu.Lock() // cover rooms
-	if mr > 0 && mr == len(m.rooms) {
+	if maxr > 0 && maxr == len(m.rooms) {
 		m.mu.Unlock()
-		return nil, errors.New("Maximum number of rooms reached. Cannot create new room.")
+		return nil, chatManagerErrMaxRooms
 	}
-	r = ChatRoomNew(n, m.done, m.log, &m.wg)
-	m.rooms[n] = r
+	room := ChatRoomNew(name, m.done, m.log, &m.wg)
+	m.rooms[name] = room
 	m.wg.Add(1)
-	go r.Run()
+	go room.Run()
 	m.mu.Unlock()
-	return r, nil
+	return room, nil
+}
+
+// renameRoom is used to change the name of a room.
+func (m *ChatManager) renameRoom(oldName string, newName string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	room, ok := m.rooms[oldName]
+	if !ok {
+		return chatManagerErrRoomNotFound
+	}
+	_, ok = m.rooms[newName]
+	if ok {
+		return chatManagerErrRoomExists
+	}
+	if !room.isEmpty() {
+		return chatManagerErrRoomNotEmpty
+	}
+
+	delete(m.rooms, oldName)
+	room.SetName(newName)
+	m.rooms[newName] = room
+	return nil
+}
+
+// deleteRoom stops a chat room from running and removes it from the directory.
+func (m *ChatManager) deleteRoom(name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	room, ok := m.rooms[name]
+	if !ok {
+		return chatManagerErrRoomNotFound
+	}
+	if !room.isEmpty() {
+		return chatManagerErrRoomNotEmpty
+	}
+	delete(m.rooms, name)
+	close(room.reqq)
+	return nil
 }
 
 // removeChatterAllRooms sends a broadcast to all rooms to release the chatter.
@@ -80,7 +133,7 @@ func (m *ChatManager) removeChatterAllRooms(c *Chatter) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	for _, r := range m.rooms {
-		if req, err := ChatRequestNew(c, r.name, ChatReqTypeLeave, ""); err == nil {
+		if req, err := ChatRequestNew(c, r.Name(), ChatReqTypeLeave, ""); err == nil {
 			r.reqq <- req
 		}
 	}

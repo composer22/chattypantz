@@ -146,7 +146,7 @@ func (c *Chatter) shutDown() {
 // setNickname sets the nickname for the chatter.
 func (c *Chatter) setNickname(r *ChatRequest) {
 	if r.Content == "" {
-		c.sendResponse("", ChatRspTypeErrNicknameMandatory, "Nickname cannot be blank.", nil)
+		c.sendResponse("", ChatRspTypeErrNicknameMandatory, "nickname cannot be blank", nil)
 		return
 	}
 	c.mu.RLock()
@@ -201,14 +201,24 @@ func (c *Chatter) ChatterStatsNew() *ChatterStats {
 // sendRequestToRoom sends the request to a room or creates a mew room to receive the request.
 func (c *Chatter) sendRequestToRoom(r *ChatRequest) {
 	if r.RoomName == "" {
-		c.sendResponse("", ChatRspTypeErrRoomMandatory, "Room name is mandatory to access a room.", nil)
+		c.sendResponse("", ChatRspTypeErrRoomMandatory, "room name is mandatory to access a room", nil)
 		return
 	}
 	m, err := c.cMngr.findCreate(r.RoomName)
 	if err != nil {
-		c.sendResponse("", ChatRspTypeErrMaxRoomsReached, err.Error(), nil)
+		c.sendResponse(r.RoomName, ChatRspTypeErrMaxRoomsReached, err.Error(), nil)
 		return
 	}
+	c.sendRequestSafety(m, r)
+}
+
+// sendRequestSafety wraps the send channel to a room so if the channel is closed we can continue.
+func (c *Chatter) sendRequestSafety(m *ChatRoom, r *ChatRequest) {
+	defer func() {
+		if err := recover(); err != nil && err == "send on closed channel" {
+			c.sendResponse(r.RoomName, ChatRspTypeErrRoomUnavailable, "room has been closed", nil)
+		}
+	}()
 	m.reqq <- r
 }
 

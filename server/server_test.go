@@ -19,6 +19,7 @@ const (
 	testChatRoomName1    = "Room1"
 	testChatRoomName2    = "Room2"
 	testChatRoomName3    = "Room3"
+	testChatRoomName4    = "Room4"
 	testChatterNickname1 = "ChatMonkey"
 	testChatterNickname2 = "MonkeyTester"
 )
@@ -48,7 +49,7 @@ var (
 		ChatReqTypeSetNickname)
 	TestServerSetNicknameExp = fmt.Sprintf(`{"roomName":"","rspType":%d,"content":"Nickname set to \"%s\".","list":[]}`,
 		ChatRspTypeSetNickname, testChatterNickname1)
-	TestServerSetNicknameExpErr = fmt.Sprintf(`{"roomName":"","rspType":%d,"content":"Nickname cannot be blank.","list":[]}`,
+	TestServerSetNicknameExpErr = fmt.Sprintf(`{"roomName":"","rspType":%d,"content":"nickname cannot be blank","list":[]}`,
 		ChatRspTypeErrNicknameMandatory)
 
 	TestServerGetNickname    = fmt.Sprintf(`{"reqType":%d}`, ChatReqTypeGetNickname)
@@ -78,16 +79,16 @@ var (
 		testChatterNickname1)
 
 	TestServerJoinExpErr = fmt.Sprintf(`{"roomName":"","rspType":%d,`+
-		`"content":"Room name is mandatory to access a room.","list":[]}`, ChatRspTypeErrRoomMandatory)
+		`"content":"room name is mandatory to access a room","list":[]}`, ChatRspTypeErrRoomMandatory)
 	TestServerJoinExpErrX2 = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
 		`"content":"You are already a member of room \"%s\".","list":[]}`, testChatRoomName1,
 		ChatRspTypeErrAlreadyJoined, testChatRoomName1)
 	TestServerJoinExpErrSame = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
 		`"content":"Nickname \"%s\" is already in use in room \"%s\".","list":[]}`, testChatRoomName1,
 		ChatRspTypeErrNicknameUsed, testChatterNickname1, testChatRoomName1)
-	TestServerJoinExpErrRoom = fmt.Sprintf(`{"roomName":"","rspType":%d,`+
-		`"content":"Maximum number of rooms reached. Cannot create new room.","list":[]}`,
-		ChatRspTypeErrMaxRoomsReached)
+	TestServerJoinExpErrRoom = fmt.Sprintf(`{"roomName":"%s","rspType":%d,`+
+		`"content":"maximum number of rooms reached","list":[]}`,
+		testChatRoomName3, ChatRspTypeErrMaxRoomsReached)
 
 	TestServerListNames     = fmt.Sprintf(`{"roomName":"%s","reqType":%d}`, testChatRoomName1, ChatReqTypeListNames)
 	TestServerListNamesExp0 = fmt.Sprintf(`{"roomName":"%s","rspType":%d,"content":"","list":[]}`,
@@ -620,7 +621,115 @@ func TestServerValidWSSession(t *testing.T) {
 	}
 }
 
+func TestAdditionalManagerFuncs(t *testing.T) {
+	time.Sleep(1 * time.Second) // allow all connections to leave cleanly from previous test.
+	var rsp = make([]byte, 1024)
+	var n int
+
+	// Positive Cases
+
+	//  Delete room
+	err := testSrvr.cMngr.deleteRoom(testChatRoomName1)
+	if err != nil {
+		t.Errorf("Room %s should have been deleted. Err: %s", testChatRoomName1, err)
+	}
+
+	//  Create room -- covered under findCreate() tests
+	_, err = testSrvr.cMngr.createRoom(testChatRoomName4)
+	if err != nil {
+		t.Errorf("Room should have been created for %s. Err: %s", testChatRoomName1, err)
+	}
+
+	//  Rename room
+	err = testSrvr.cMngr.renameRoom(testChatRoomName4, testChatRoomName1)
+	if err != nil {
+		t.Errorf("Room should have been renamed from %s to %s. Err: %s",
+			testChatRoomName4, testChatRoomName1, err)
+	}
+
+	// Negative Cases
+
+	// First place a connection into a room for our tests.
+	ws1, err := websocket.Dial(testSrvrURL, "", testSrvrOrg)
+	if err != nil {
+		t.Errorf("Server dialing error: %s", err)
+		return
+	}
+	defer ws1.Close()
+
+	if _, err := ws1.Write([]byte(TestServerSetNickname)); err != nil {
+		if err != nil {
+			t.Errorf("Websocket send error: %s", err)
+			return
+		}
+	}
+	if n, err = ws1.Read(rsp); err != nil {
+		if err != nil {
+			t.Errorf("Websocket receive error: %s", err)
+			return
+		}
+	}
+	result := string(rsp[:n])
+	if result != TestServerSetNicknameExp {
+		t.Errorf("Set Nickname error.\nExpected: %s\n\nActual: %s\n", TestServerSetNicknameExp, result)
+	}
+
+	if _, err := ws1.Write([]byte(TestServerJoin)); err != nil {
+		if err != nil {
+			t.Errorf("Websocket send error: %s", err)
+			return
+		}
+	}
+	if n, err = ws1.Read(rsp); err != nil {
+		if err != nil {
+			t.Errorf("Websocket receive error: %s", err)
+			return
+		}
+	}
+	result = string(rsp[:n])
+	if result != TestServerJoinExp {
+		t.Errorf("Join room error.\nExpected: %s\n\nActual: %s\n", TestServerJoinExp, result)
+	}
+
+	// Should not delete a room if it doesnt exist.
+	err = testSrvr.cMngr.deleteRoom(testChatRoomName4)
+	if err == nil || err != chatManagerErrRoomNotFound {
+		t.Errorf("Room %s should not have been deleted. Expected: %s Actual: %s",
+			testChatRoomName1, chatManagerErrRoomNotFound, err)
+		// chatroom not found
+	}
+
+	// Should not delete a room if someone still in it.
+	err = testSrvr.cMngr.deleteRoom(testChatRoomName1)
+	if err == nil || err != chatManagerErrRoomNotEmpty {
+		t.Errorf("Room delete error. Expected: %s Actual: %s",
+			testChatRoomName1, chatManagerErrRoomNotEmpty, err)
+	}
+
+	// Should not rename a room if old room doesnt exist.
+	err = testSrvr.cMngr.renameRoom(testChatRoomName4, testChatRoomName4)
+	if err == nil || err != chatManagerErrRoomNotFound {
+		t.Errorf("Room %s should not have been deleted. Expected: %s Actual: %s",
+			testChatRoomName1, chatManagerErrRoomNotFound, err)
+	}
+
+	// Should not rename a room if new room exists.
+	err = testSrvr.cMngr.renameRoom(testChatRoomName1, testChatRoomName1)
+	if err == nil || err != chatManagerErrRoomExists {
+		t.Errorf("Room rename error. Expected: %s Actual: %s", chatManagerErrRoomExists, err)
+	}
+
+	// Should not rename a room if someone still in it.
+	err = testSrvr.cMngr.renameRoom(testChatRoomName1, testChatRoomName4)
+	if err == nil || err != chatManagerErrRoomNotEmpty {
+		t.Errorf("Room rename error. Expected: %s Actual: %s", chatManagerErrRoomNotEmpty, err)
+	}
+
+}
+
 func TestServerWSErrorSession(t *testing.T) {
+	time.Sleep(1 * time.Second) // allow all connections to leave cleanly from previous test.
+
 	var rsp = make([]byte, 1024)
 	var n int
 	ws1, err := websocket.Dial(testSrvrURL, "", testSrvrOrg)
