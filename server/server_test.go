@@ -702,7 +702,7 @@ func TestAdditionalManagerFuncs(t *testing.T) {
 	// Should not delete a room if someone still in it.
 	err = testSrvr.cMngr.deleteRoom(testChatRoomName1)
 	if err == nil || err != chatManagerErrRoomNotEmpty {
-		t.Errorf("Room delete error. Expected: %s Actual: %s",
+		t.Errorf("Room %s delete error. Expected: %s Actual: %s",
 			testChatRoomName1, chatManagerErrRoomNotEmpty, err)
 	}
 
