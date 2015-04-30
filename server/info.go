@@ -23,8 +23,8 @@ func InfoNew(opts ...func(*Info)) *Info {
 		Version: version,
 		UUID:    createV4UUID(),
 	}
-	for _, o := range opts {
-		o(inf)
+	for _, f := range opts {
+		f(inf)
 	}
 	return inf
 }

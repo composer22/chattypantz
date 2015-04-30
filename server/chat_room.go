@@ -13,6 +13,7 @@ var (
 
 // ChatRoom represents a hub of chatters where messages can be exchanged.
 type ChatRoom struct {
+	mu       sync.RWMutex      // Lock against stats.
 	name     string            // The name of the room.
 	chatters map[*Chatter]bool // A list of chatters in the room and if they are hidden from view.
 	start    time.Time         // The start time of the room.
@@ -20,17 +21,17 @@ type ChatRoom struct {
 	lastRsp  time.Time         // The last response time from the room.
 	reqCount uint64            // Total requests received.
 	rspCount uint64            // Total responses sent.
-	reqq     chan *ChatRequest // Channel to receive requests.
-	done     chan bool         // Channel to receive signal to shutdown now.
-	log      *ChatLogger       // Application log for events.
-	mu       sync.Mutex        // Lock against stats.
-	wg       *sync.WaitGroup   // Wait group for the run from the chat room manager.
+
+	reqq chan *ChatRequest // Channel to receive requests.
+	done chan bool         // Channel to receive signal to shutdown now.
+	log  *ChatLogger       // Application log for events.
+	wg   *sync.WaitGroup   // Wait group for the run from the chat room manager.
 }
 
 // ChatRoomNew is a factory function that returns a new instance of a chat room.
-func ChatRoomNew(n string, d chan bool, cl *ChatLogger, g *sync.WaitGroup) *ChatRoom {
+func ChatRoomNew(name string, d chan bool, cl *ChatLogger, g *sync.WaitGroup) *ChatRoom {
 	return &ChatRoom{
-		name:     n,
+		name:     name,
 		chatters: make(map[*Chatter]bool),
 		reqq:     make(chan *ChatRequest, maxChatRoomReq),
 		done:     d,
@@ -106,13 +107,13 @@ func (r *ChatRoom) join(q *ChatRequest) {
 // listNames sends a response to the user with a list of all nicknames in the room.
 func (r *ChatRoom) listNames(q *ChatRequest) {
 	var names []string
-	r.mu.Lock()
+	r.mu.RLock()
 	for c, hidden := range r.chatters {
 		if !hidden { // don't return hidden names.
 			names = append(names, c.Nickname())
 		}
 	}
-	r.mu.Unlock()
+	r.mu.RUnlock()
 	r.sendResponse(q.Who, ChatRspTypeListNames, "", names)
 }
 
@@ -134,9 +135,9 @@ func (r *ChatRoom) unhide(q *ChatRequest) {
 
 // message sends a message from a chatter to everyone in the room.
 func (r *ChatRoom) message(q *ChatRequest) {
-	r.mu.Lock()
+	r.mu.RLock()
 	isHidden := r.chatters[q.Who]
-	r.mu.Unlock()
+	r.mu.RUnlock()
 	if isHidden {
 		r.sendResponse(q.Who, ChatRspTypeErrHiddenNickname,
 			fmt.Sprintf(`Nickname "%s" is hidden. Cannot post in room "%s".`, q.Who.Nickname(),
@@ -180,9 +181,9 @@ type ChatRoomChatterStat struct {
 
 // ChatRoomStatsNew returns status information on the room.
 func (r *ChatRoom) ChatRoomStatsNew() *ChatRoomStats {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	s := &ChatRoomStats{
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	stat := &ChatRoomStats{
 		Name:     r.name,
 		Start:    r.start,
 		LastReq:  r.lastReq,
@@ -191,30 +192,30 @@ func (r *ChatRoom) ChatRoomStatsNew() *ChatRoomStats {
 		RspCount: r.rspCount,
 		Chatters: []*ChatRoomChatterStat{},
 	}
-	for c := range r.chatters {
-		st := c.ChatterStatsNew()
-		s.Chatters = append(s.Chatters, &ChatRoomChatterStat{
-			Nickname:   st.Nickname,
-			RemoteAddr: st.RemoteAddr,
+	for ctr := range r.chatters {
+		ctrStat := ctr.ChatterStatsNew()
+		stat.Chatters = append(stat.Chatters, &ChatRoomChatterStat{
+			Nickname:   ctrStat.Nickname,
+			RemoteAddr: ctrStat.RemoteAddr,
 		})
 	}
-	return s
+	return stat
 }
 
 // isMember validates if the member exists in the room.
 func (r *ChatRoom) isMember(c *Chatter) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	_, ok := r.chatters[c]
 	return ok
 }
 
 // isMemberName validates if a member is using a nickname in the room.
-func (r *ChatRoom) isMemberName(n string) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *ChatRoom) isMemberName(name string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	for c := range r.chatters {
-		if c.Nickname() == n {
+		if c.Nickname() == name {
 			return true
 		}
 	}
@@ -222,11 +223,11 @@ func (r *ChatRoom) isMemberName(n string) bool {
 }
 
 // sendResponse sends a message to a single chatter in the room.
-func (r *ChatRoom) sendResponse(c *Chatter, rt int, ct string, l []string) {
+func (r *ChatRoom) sendResponse(c *Chatter, rspt int, cont string, l []string) {
 	if l == nil {
 		l = []string{}
 	}
-	c.sendResponse(r.name, rt, ct, l)
+	c.sendResponse(r.name, rspt, cont, l)
 	r.mu.Lock()
 	r.lastRsp = time.Now()
 	r.rspCount++
@@ -234,13 +235,13 @@ func (r *ChatRoom) sendResponse(c *Chatter, rt int, ct string, l []string) {
 }
 
 // sendResponseAll sends a message to all chatters in the room.
-func (r *ChatRoom) sendResponseAll(rt int, ct string, l []string) {
+func (r *ChatRoom) sendResponseAll(rspt int, cont string, l []string) {
 	if l == nil {
 		l = []string{}
 	}
 	r.mu.Lock()
 	for c := range r.chatters {
-		c.sendResponse(r.name, rt, ct, l)
+		c.sendResponse(r.name, rspt, cont, l)
 		r.lastRsp = time.Now()
 		r.rspCount++
 	}

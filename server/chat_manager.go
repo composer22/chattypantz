@@ -10,25 +10,26 @@ import (
 
 // ChatManager represents a control hub of chat rooms and chatters for the server.
 type ChatManager struct {
+	mu       sync.RWMutex         // Lock for update.
 	rooms    map[string]*ChatRoom // A list of rooms on the server.
 	chatters map[*Chatter]bool    // A list of chatters on the server.
-	done     chan bool            // Shut down chatters and rooms
 	maxRooms int                  // Maximum number of rooms allowed to be created.
 	maxIdle  int                  // Maximum idle time allowed for a ws connection.
-	log      *ChatLogger          // Application log for events.
-	wg       sync.WaitGroup       // Synchronizer for manager reqq.
-	mu       sync.Mutex           // Lock for update.
+
+	done chan bool      // Shut down chatters and rooms
+	log  *ChatLogger    // Application log for events.
+	wg   sync.WaitGroup // Synchronizer for manager reqq.
 }
 
 // ChatManagerNew is a factory function that returns a new instance of a chat manager.
-func ChatManagerNew(n int, mi int, cl *ChatLogger) *ChatManager {
+func ChatManagerNew(maxr int, maxi int, l *ChatLogger) *ChatManager {
 	return &ChatManager{
 		rooms:    make(map[string]*ChatRoom),
 		chatters: make(map[*Chatter]bool),
+		maxRooms: maxr,
+		maxIdle:  maxi,
 		done:     make(chan bool),
-		maxRooms: n,
-		maxIdle:  mi,
-		log:      cl,
+		log:      l,
 	}
 }
 
@@ -44,75 +45,76 @@ func (m *ChatManager) list() []string {
 }
 
 // find will find a chat room for a given name.
-func (m *ChatManager) find(n string) (*ChatRoom, error) {
-	m.mu.Lock()
-	r, ok := m.rooms[n]
-	m.mu.Unlock()
+func (m *ChatManager) find(name string) (*ChatRoom, error) {
+	m.mu.RLock()
+	rm, ok := m.rooms[name]
+	m.mu.RUnlock()
 	if !ok {
-		return nil, errors.New(fmt.Sprintf(`Chatroom "%s" not found.`, n))
+		return nil, errors.New(fmt.Sprintf(`Chatroom "%s" not found.`, name))
 	}
-	return r, nil
+	return rm, nil
 }
 
 // findCreate returns a chat room for a given name or create a new one.
 func (m *ChatManager) findCreate(n string) (*ChatRoom, error) {
 	r, err := m.find(n)
-	if err != nil {
-		mr := m.MaxRooms()
-		m.mu.Lock() // cover rooms
-		if mr > 0 && mr == len(m.rooms) {
-			m.mu.Unlock()
-			return nil, errors.New("Maximum number of rooms reached. Cannot create new room.")
-		}
-		r = ChatRoomNew(n, m.done, m.log, &m.wg)
-		m.rooms[n] = r
-		m.wg.Add(1)
-		go r.Run()
-		m.mu.Unlock()
+	if err == nil {
+		return r, err
 	}
+	mr := m.MaxRooms()
+	m.mu.Lock() // cover rooms
+	if mr > 0 && mr == len(m.rooms) {
+		m.mu.Unlock()
+		return nil, errors.New("Maximum number of rooms reached. Cannot create new room.")
+	}
+	r = ChatRoomNew(n, m.done, m.log, &m.wg)
+	m.rooms[n] = r
+	m.wg.Add(1)
+	go r.Run()
+	m.mu.Unlock()
 	return r, nil
 }
 
 // removeChatterAllRooms sends a broadcast to all rooms to release the chatter.
 func (m *ChatManager) removeChatterAllRooms(c *Chatter) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	for _, r := range m.rooms {
-		if q, err := ChatRequestNew(c, r.name, ChatReqTypeLeave, ""); err == nil {
-			r.reqq <- q
+		if req, err := ChatRequestNew(c, r.name, ChatReqTypeLeave, ""); err == nil {
+			r.reqq <- req
 		}
 	}
 }
 
 // getRoomStats returns statistics from each room.
 func (m *ChatManager) getRoomStats() []*ChatRoomStats {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	var s = []*ChatRoomStats{}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var stats = []*ChatRoomStats{}
 	for _, r := range m.rooms {
-		s = append(s, r.ChatRoomStatsNew())
+		stats = append(stats, r.ChatRoomStatsNew())
 	}
-	return s
+	return stats
 }
 
 // registerChatter registers a new chatter with the chat manager.
 func (m *ChatManager) registerNewChatter(ws *websocket.Conn) *Chatter {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	c := ChatterNew(m, ws, m.log)
-	m.chatters[c] = true
-	return c
+	chatr := ChatterNew(m, ws, m.log)
+	m.chatters[chatr] = true
+	return chatr
 }
 
 // getChatterStats returns statistics from all chatters
 func (m *ChatManager) getChatterStats() []*ChatterStats {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	var s = []*ChatterStats{}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var stats = []*ChatterStats{}
 	for c := range m.chatters {
-		s = append(s, c.ChatterStatsNew())
+		stats = append(stats, c.ChatterStatsNew())
 	}
-	return s
+	return stats
 }
 
 // unregisterChatter removes a new chatter from the chat manager.
@@ -136,28 +138,28 @@ func (m *ChatManager) shutdownAll() {
 
 // MaxRooms returns the current maximum number of rooms allowed on the server.
 func (m *ChatManager) MaxRooms() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.maxRooms
 }
 
 // SetMaxRooms sets the maximum number of rooms allowed on the server.
-func (m *ChatManager) SetMaxRooms(mr int) {
+func (m *ChatManager) SetMaxRooms(maxr int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.maxRooms = mr
+	m.maxRooms = maxr
 }
 
 // MaxIdle returns the current maximum idle time for a connection.
 func (m *ChatManager) MaxIdle() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	return m.maxIdle
 }
 
 // SetMaxIdle sets the maximum idle time for a connection.
-func (m *ChatManager) SetMaxIdle(mi int) {
+func (m *ChatManager) SetMaxIdle(maxi int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.maxIdle = mi
+	m.maxIdle = maxi
 }

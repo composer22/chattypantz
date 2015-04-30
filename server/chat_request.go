@@ -26,15 +26,15 @@ type ChatRequest struct {
 }
 
 // ChatMessageNew is a factory method that returns a new chat room message instance.
-func ChatRequestNew(c *Chatter, m string, rt int, n string) (*ChatRequest, error) {
-	if rt < ChatReqTypeSetNickname || rt > ChatReqTypeLeave {
+func ChatRequestNew(c *Chatter, room string, reqt int, cont string) (*ChatRequest, error) {
+	if reqt < ChatReqTypeSetNickname || reqt > ChatReqTypeLeave {
 		return nil, errors.New("Request Type is out of range.")
 	}
 	return &ChatRequest{
 		Who:      c,
-		RoomName: m,
-		ReqType:  rt,
-		Content:  n,
+		RoomName: room,
+		ReqType:  reqt,
+		Content:  cont,
 	}, nil
 }
 

@@ -23,15 +23,15 @@ import (
 
 // Server is the main structure that represents a server instance.
 type Server struct {
+	mu      sync.RWMutex // For locking access to server attributes.
+	running bool         // Is the server running?
 	info    *Info        // Basic server information used to run the server.
 	opts    *Options     // Original options used to create the server.
 	stats   *Stats       // Server statistics since it started.
-	mu      sync.Mutex   // For locking access to server attributes.
-	running bool         // Is the server running?
-	log     *ChatLogger  // Log instance for recording error and other messages.
 	cMngr   *ChatManager // Manager of chatters and chat rooms.
-	done    chan bool    // A channel to signal to web socked to close.
 	srvr    *http.Server // HTTP server.
+	done    chan bool    // A channel to signal to web socked to close.
+	log     *ChatLogger  // Log instance for recording error and other messages.
 }
 
 // New is a factory function that returns a new server instance.
@@ -161,9 +161,9 @@ func (s *Server) handleSignals() {
 func (s *Server) chatHandler(ws *websocket.Conn) {
 	s.log.LogConnect(ws.Request())
 	s.incrementStats(ws.Request())
-	c := s.cMngr.registerNewChatter(ws)
-	c.Run()
-	s.cMngr.unregisterChatter(c)
+	chatr := s.cMngr.registerNewChatter(ws)
+	chatr.Run()
+	s.cMngr.unregisterChatter(chatr)
 }
 
 // aliveHandler handles a client http:// "is the server alive?" request.
@@ -220,7 +220,7 @@ func (s *Server) incrementStats(r *http.Request) {
 
 // isRunning returns a boolean representing whether the server is running or not.
 func (s *Server) isRunning() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.running
 }
