@@ -20,11 +20,11 @@ const (
 const (
 	ChatRspTypeErrRoomMandatory = 1001 + iota
 	ChatRspTypeErrMaxRoomsReached
+	ChatRspTypeErrRoomUnavailable
 	ChatRspTypeErrNicknameMandatory
 	ChatRspTypeErrAlreadyJoined
 	ChatRspTypeErrNicknameUsed
 	ChatRspTypeErrHiddenNickname
-	ChatRspTypeErrNotInRoom
 	ChatRspTypeErrUnknownReq
 )
 
@@ -37,16 +37,16 @@ type ChatResponse struct {
 }
 
 // ChatResponseNew is a factory method that returns a new chat room message instance.
-func ChatResponseNew(m string, rt int, c string, l []string) (*ChatResponse, error) {
-	if rt < ChatRspTypeSetNickname ||
-		(rt > ChatRspTypeLeave && rt < ChatRspTypeErrRoomMandatory) ||
-		rt > ChatRspTypeErrUnknownReq {
+func ChatResponseNew(name string, rspt int, cont string, l []string) (*ChatResponse, error) {
+	if rspt < ChatRspTypeSetNickname ||
+		(rspt > ChatRspTypeLeave && rspt < ChatRspTypeErrRoomMandatory) ||
+		rspt > ChatRspTypeErrUnknownReq {
 		return nil, errors.New("Response Type is out of range.")
 	}
 	return &ChatResponse{
-		RoomName: m,
-		RspType:  rt,
-		Content:  c,
+		RoomName: name,
+		RspType:  rspt,
+		Content:  cont,
 		List:     l,
 	}, nil
 }

@@ -17,27 +17,28 @@ var (
 
 // Chatter is a wrapper around a connection that represents one chat client on the server.
 type Chatter struct {
-	cMngr    *ChatManager       // The chat manager this chatter is attached to.
-	ws       *websocket.Conn    // The socket to the remote client.
-	nickname string             // The friendly nickname to display in a conversation.
-	start    time.Time          // The start time of the connection.
-	lastReq  time.Time          // The last request time of the connection.
-	lastRsp  time.Time          // The last response time to the connection.
-	reqCount uint64             // Total requests received.
-	rspCount uint64             // Total responses sent.
-	done     chan bool          // Signal that chatter is closed.
-	rspq     chan *ChatResponse // A channel to receive information to send to the remote client.
-	log      *ChatLogger        // Server logger
-	mu       sync.Mutex         // For locking access to chatter attributes.
-	wg       sync.WaitGroup     // Synchronization of channel close.
+	mu       sync.RWMutex // For locking access to chatter attributes.
+	nickname string       // The friendly nickname to display in a conversation.
+	start    time.Time    // The start time of the connection.
+	lastReq  time.Time    // The last request time of the connection.
+	lastRsp  time.Time    // The last response time to the connection.
+	reqCount uint64       // Total requests received.
+	rspCount uint64       // Total responses sent.
+
+	cMngr *ChatManager       // The chat manager this chatter is attached to.
+	ws    *websocket.Conn    // The socket to the remote client.
+	rspq  chan *ChatResponse // A channel to receive information to send to the remote client.
+	done  chan bool          // Signal that chatter is closed.
+	log   *ChatLogger        // Server logger
+	wg    sync.WaitGroup     // Synchronization of channel close.
 
 }
 
 // ChatterNew is a factory function that returns a new Chatter instance
-func ChatterNew(cm *ChatManager, c *websocket.Conn, l *ChatLogger) *Chatter {
+func ChatterNew(cm *ChatManager, w *websocket.Conn, l *ChatLogger) *Chatter {
 	return &Chatter{
 		cMngr: cm,
-		ws:    c,
+		ws:    w,
 		done:  make(chan bool, 1),
 		rspq:  make(chan *ChatResponse, maxChatterRsp),
 		log:   l,
@@ -59,9 +60,9 @@ func (c *Chatter) receive() {
 	remoteAddr := c.ws.Request().RemoteAddr
 	for {
 		// Set optional idle timeout on the receive.
-		mi := c.cMngr.MaxIdle()
-		if mi > 0 {
-			c.ws.SetReadDeadline(time.Now().Add(time.Duration(mi) * time.Second))
+		maxi := c.cMngr.MaxIdle()
+		if maxi > 0 {
+			c.ws.SetReadDeadline(time.Now().Add(time.Duration(maxi) * time.Second))
 		}
 		var req ChatRequest
 		if err := websocket.JSON.Receive(c.ws, &req); err != nil {
@@ -145,12 +146,12 @@ func (c *Chatter) shutDown() {
 // setNickname sets the nickname for the chatter.
 func (c *Chatter) setNickname(r *ChatRequest) {
 	if r.Content == "" {
-		c.sendResponse("", ChatRspTypeErrNicknameMandatory, "Nickname cannot be blank.", nil)
+		c.sendResponse("", ChatRspTypeErrNicknameMandatory, "nickname cannot be blank", nil)
 		return
 	}
-	c.mu.Lock()
+	c.mu.RLock()
 	c.nickname = r.Content
-	c.mu.Unlock()
+	c.mu.RUnlock()
 	c.sendResponse("", ChatRspTypeSetNickname, fmt.Sprintf(`Nickname set to "%s".`, c.Nickname()), nil)
 }
 
@@ -161,8 +162,8 @@ func (c *Chatter) getNickname() {
 
 // Nickname returns the raw nickname for the chatter.
 func (c *Chatter) Nickname() string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.nickname
 }
 
@@ -184,8 +185,8 @@ type ChatterStats struct {
 
 // ChatterStatsNew returns status information on the chatter.
 func (c *Chatter) ChatterStatsNew() *ChatterStats {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return &ChatterStats{
 		Nickname:   c.nickname,
 		RemoteAddr: c.ws.Request().RemoteAddr,
@@ -200,23 +201,33 @@ func (c *Chatter) ChatterStatsNew() *ChatterStats {
 // sendRequestToRoom sends the request to a room or creates a mew room to receive the request.
 func (c *Chatter) sendRequestToRoom(r *ChatRequest) {
 	if r.RoomName == "" {
-		c.sendResponse("", ChatRspTypeErrRoomMandatory, "Room name is mandatory to access a room.", nil)
+		c.sendResponse("", ChatRspTypeErrRoomMandatory, "room name is mandatory to access a room", nil)
 		return
 	}
 	m, err := c.cMngr.findCreate(r.RoomName)
 	if err != nil {
-		c.sendResponse("", ChatRspTypeErrMaxRoomsReached, err.Error(), nil)
+		c.sendResponse(r.RoomName, ChatRspTypeErrMaxRoomsReached, err.Error(), nil)
 		return
 	}
+	c.sendRequestSafety(m, r)
+}
+
+// sendRequestSafety wraps the send channel to a room so if the channel is closed we can continue.
+func (c *Chatter) sendRequestSafety(m *ChatRoom, r *ChatRequest) {
+	defer func() {
+		if err := recover(); err != nil && err == "send on closed channel" {
+			c.sendResponse(r.RoomName, ChatRspTypeErrRoomUnavailable, "room has been closed", nil)
+		}
+	}()
 	m.reqq <- r
 }
 
 // sendResponse sends a message to the send() go routine to send message back to chatter.
-func (c *Chatter) sendResponse(n string, rt int, msg string, l []string) {
+func (c *Chatter) sendResponse(rname string, rspt int, cont string, l []string) {
 	if l == nil {
 		l = []string{}
 	}
-	if rsp, err := ChatResponseNew(n, rt, msg, l); err == nil {
+	if rsp, err := ChatResponseNew(rname, rspt, cont, l); err == nil {
 		select {
 		case <-c.done:
 		default:
