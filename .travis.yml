@@ -24,8 +24,6 @@ script:
   - ./travis/govet.sh
   - go test -i -race ./...
   - go test -v -race ./...
-
-on_success:
   - ./travis/coveralls-script.sh
 
 notifications:
