@@ -74,7 +74,30 @@ The socket connection endpoint is:
 ```
 ws://{host:port}/v1.0/chat
 ```
-Following are some examples for using Chrome/Dark Websocket.
+
+The basic json format of a request is as follows:
+
+```
+{
+	"roomName":"Name of the room to access",
+	"reqType":999,
+	"content":"command, metadata, msg etc."
+}
+```
+
+The basic json format of a response back from the server is as follows:
+
+```
+{
+	"roomName":"Name of the room responding.",
+	"rspType":999,
+	"content":"confirmation data, message, errors, etc"
+	"list":["data","in","array","form","such","as","roomnames"]
+}
+```
+See server/chat_request.go and server/chat_response.go for more details on types.
+
+The following are some examples for using Chrome/Dark Websocket.
 Spaces must be encoded in JSON calls.
 
 ```
@@ -124,8 +147,8 @@ Spaces must be encoded in JSON calls.
 
 ```
 
-A client javascript/html demo is provided under the /client directory.
-Please see that directories README.md for more information.
+Clientside demos are provided under the /client directory.
+Please see those directory README.md files for more information.
 
 ## HTTP API for Alive and Stats
 
