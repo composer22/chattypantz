@@ -1,20 +1,14 @@
-/** @jsx React.DOM */
-
+// ConnectedSection is the interactive form for communication to the server once connected.
 var ConnectedSection = React.createClass({
+	// setState(function|object nextState[, function callback])
+	// forceUpdate([function callback])
 
-	getInitialState: function(){
-		return {
-			nickname: ""
-		};
-	},
+	// object propTypes
+	// array mixins
+	// object statics
+	// string displayName
 
-	componentDidMount: function() {
-
-	},
-
-	componentWillUnmount: function(){
-
-	},
+	// Built-in Component Methods
 
 	render: function() {
 		return(
@@ -32,16 +26,17 @@ var ConnectedSection = React.createClass({
 		    </div>
 		  </div>
 
-		  <form className="ui form" name="sendForm" ng-submit="sendButtonClicked()">
+		  <form className="ui form" name="sendForm">
 		    <div className="ui page grid">
 		      <div className="two wide column">
-		        <input type="submit" className="ui submit button primary" data-ng-disabled="chat.data.messageText == ''" value="Send!" />
+		        <input type="submit" className="ui primary submit button disabled" ref="sendButton" value="Send!" onClick={this._handleSend}/>
 		      </div>
 		      <div className="eight wide column field">
-		        <input className="message" ng-model="chat.data.messageText" name="messageText" type="text" placeholder="Type message here..." />
+		        <input className="message" name="messageText" type="text" onChange={this._handleMessageChange}
+				   placeholder="Type message here..." />
 		      </div>
 		      <div className="two wide column">
-		        <input type="button" class="ui mini red button" ng-click="quit()" value="Quit" />
+		        <input type="button" class="ui mini red button" value="Quit" onClick={this._handleQuit}/>
 		      </div>
 		    </div>
 		  </form>
@@ -49,8 +44,61 @@ var ConnectedSection = React.createClass({
 		);
 	},
 
-	componentDidUpdate: function() {
+	getInitialState: function() {
+		return null;
+	},
+	getDefaultProps: function() {
+		// NOP
+	},
 
+	// Built-in Lifecycle Methods
 
+	componentWillMount: function(){
+		// NOP
+	},
+	componentDidMount: function(){
+		ConnectionStore.addChangeListener(this._onChange);
+	},
+	componentWillReceiveProps: function(){
+		// NOP
+	},
+	shouldComponentUpdate: function(){
+		// NOP
+	},
+	componentWillUpdate: function(){
+		// NOP
+	},
+	componentDidUpdate: function(){
+		// NOP
+	},
+
+	componentWillUnmount: function(){
+		ConnectionStore.removeChangeListener(this._onChange);
+	},
+
+	// callback method for store to communicate any data change.
+	_onChange: function() {
+		// on call, you would pull data from the ConnectionStore for display
+	},
+
+	// Send button pressed for message.
+	_handleSend: function() {
+		ConnectionActions.send("TODO The Message Goes Here.");
+		return false;
+	},
+
+	// When the message field changes, check the length and disable the send button if it is empty.
+	_handleMessageChange: function(event) {
+		if(event.target.value.length > 0) {
+			React.findDOMNode(this.refs.sendButton).className = "ui primary submit button";
+		} else {
+			React.findDOMNode(this.refs.sendButton).className = "ui primary submit button disabled";
+		}
+	},
+
+	// Quit button pressed, so disconnect; return to main page.
+	_handleQuit: function() {
+		ConnectionActions.logout();
+		return false;
 	}
 });

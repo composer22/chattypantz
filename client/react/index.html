@@ -28,13 +28,24 @@
   </div>
 
   <!--[if lt IE 9]>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/es5-shim/4.1.1/es5-shim.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/json3/3.3.2/json3.min.js"></script>
 <![endif]-->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/es6-shim/0.31.0/es6-shim.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/1.12.0/semantic.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.13.2/JSXTransformer.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.13.2/react-with-addons.min.js"></script>
+  <script src="js/libs/facebook/flux/dist/Flux.js"></script>
+  <script src="js/libs/joyent/node/lib/util.js"></script>
+  <script src="js/libs/joyent/node/lib/events.js"></script>
+
+  <!-- The application: no bundler or tools -->
+  <script src="js/constants/AppConstants.js"></script>
+  <script src="js/actions/LoginActions.js"></script>
+  <script src="js/actions/ConnectionActions.js"></script>
+  <script src="js/dispatcher/AppDispatcher.js"></script>
+  <script type="text/jsx" src="js/stores/LoginStore.js"></script>
+  <script type="text/jsx" src="js/stores/ConnectionStore.js"></script>
   <script type="text/jsx" src="js/components/LoginSection.react.js"></script>
   <script type="text/jsx" src="js/components/ConnectedSection.react.js"></script>
   <script type="text/jsx" src="js/app.js"></script>

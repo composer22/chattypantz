@@ -1,7 +1,6 @@
-/** @jsx React.DOM */
-window.React = React;
-console.log("API")
+// Load initial state of the application.
 React.render(
-	<LoginSection />,
-   document.getElementById("chattypantzapp")
+ <LoginSection />,
+  document.getElementById("chattypantzapp")
 );
+
