@@ -1,6 +1,9 @@
 // TBD
-var _messages = {};
 var LoginStore = Object.assign({}, EventEmitter.prototype, {
+
+  nickname: "",
+  error: "",
+
   emitChange: function() {
     this.emit(EventTypes.CHANGE_EVENT);
   },
@@ -13,23 +16,36 @@ var LoginStore = Object.assign({}, EventEmitter.prototype, {
     this.removeListener(EventTypes.CHANGE_EVENT, callback);
   },
 
-  get: function(id) {
-    return _messages[id];
+  setNickname: function(nickname) {
+	this.nickname = nickname;
   },
 
-  getAll: function(id) {
-    return _messages;
+  getNickname: function() {
+	return this.nickname;
+  },
+
+  setError: function(error) {
+	this.error = error;
+  },
+
+  getError: function() {
+	return this.error;
   }
 
 });
 
 LoginStore.dispatchToken = AppDispatcher.register(function(action) {
+  var ls = LoginStore;
+  var cs = ConnectionStore;
   switch (action.actionType) {
     case ActionTypes.LOGIN:
-		React.render(
-			 <ConnectedSection />,
-			  document.getElementById("chattypantzapp")
-			);
+		ls.setNickname(action.nickname);
+		cs.login();
+		break;
+    case ActionTypes.REFRESH_LOGIN:
+		ls.setNickname(action.nickname);
+		ls.setError(action.error);
+		ls.emitChange();
       break;
     default:
       // do nothing.

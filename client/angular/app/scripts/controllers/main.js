@@ -104,7 +104,6 @@ angular.module('chattypantzApp').controller('MainCtrl', function($scope, $route,
         $scope.$apply();
         break;
       case RESPONSE_TYPE.LIST_NAMES:
-        console.log("GOT HERE")
         var users = angular.fromJson(response.list);
         $scope.chat.data.users = users;
         $scope.$apply();

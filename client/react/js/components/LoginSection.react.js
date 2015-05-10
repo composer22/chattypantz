@@ -1,6 +1,5 @@
 // LoginSection prompts the user for a nickname and navigates the initial connection to the server.
 var LoginSection = React.createClass({
-	// setState(function|object nextState[, function callback])
 	// forceUpdate([function callback])
 
 	// object propTypes
@@ -12,22 +11,22 @@ var LoginSection = React.createClass({
 
 	render: function(){
 		return(
-			<div>
+			<div ref="loginSection">
 			  <form className="ui error form" name="loginForm">
 			    <div className="ui page grid">
 			      <div className="three wide column">
 			        <input type="submit" className="ui primary submit button disabled" ref="loginButton" value="Start Chatting!" onClick={this._handleSubmit}/>
 			      </div>
 			      <div className="ten wide column field">
-			        <input name="nickname" required type="text" onChange={this._handleNicknameChange}
+			        <input name="nickname" ref="nickname" required type="text" onChange={this._handleNicknameChange}
 					    placeholder="Enter your nickname and press the 'Start Chatting!' button..." />
 			      </div>
 			    </div>
 			    <div className="ui page grid">
 			      <div className="ui error message center aligned thirteen wide column hidden"
-				         ng-show="chat.status.error" id="connection-error">
+				         ref="errorBox" id="connection-error">
 			        <strong>Error:</strong>
-			        <br/> chat.status.error
+			        <br/> {this.state.error}
 			        <br/> Please try again later...
 			      </div>
 			    </div>
@@ -39,7 +38,8 @@ var LoginSection = React.createClass({
 
 	getInitialState: function() {
 		return {
-			nickname: ""
+			nickname: '',
+			error: ''
 		};
 	},
 
@@ -78,12 +78,22 @@ var LoginSection = React.createClass({
 
 	// callback method for store to communicate any data change.
 	_onChange: function() {
-		// on call, you would pull data from the LoginStore for display
+		this.setState({
+			nickname: LoginStore.getNickname(),
+			error: LoginStore.getError()
+		});
+		if(this.state.error != '') {
+			React.findDOMNode(this.refs.errorBox).className = "ui error message center aligned thirteen wide column";
+		} else {
+			React.findDOMNode(this.refs.errorBox).className = "ui error message center aligned thirteen wide column hidden";
+		}
+		this.forceUpdate();
 	},
 
     // Submit button for login.
 	_handleSubmit: function() {
-		LoginActions.login();
+		React.findDOMNode(this.refs.nickname).value
+		LoginActions.login(React.findDOMNode(this.refs.nickname).value);
 		return false;
 	},
 

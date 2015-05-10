@@ -15,10 +15,10 @@ var ConnectedSection = React.createClass({
 		<div>
 		  <div className="ui page grid">
 		    <div className="twelve wide column">
-		      <textarea id="chat-history"></textarea>
+		      <textarea id="chat-history" ref="chatHistory"></textarea>
 		    </div>
 		    <div className="four wide column" id="online-user-list">
-		      <a className="ui teal ribbon label">Online Users (chat.data.users.length)</a>
+		      <a className="ui teal ribbon label">Online Users {this.getUserCount()}</a>
 		      <br/>
 		      <span ng-repeat="nickname in chat.data.users">nickname
 		        <br/>
@@ -36,7 +36,7 @@ var ConnectedSection = React.createClass({
 				   placeholder="Type message here..." />
 		      </div>
 		      <div className="two wide column">
-		        <input type="button" class="ui mini red button" value="Quit" onClick={this._handleQuit}/>
+		        <input type="button" className="ui mini red button" value="Quit" onClick={this._handleQuit}/>
 		      </div>
 		    </div>
 		  </form>
