@@ -1,28 +1,16 @@
 // ConnectedSection is the interactive form for communication to the server once connected.
 var ConnectedSection = React.createClass({
-	// setState(function|object nextState[, function callback])
-	// forceUpdate([function callback])
-
-	// object propTypes
-	// array mixins
-	// object statics
-	// string displayName
-
-	// Built-in Component Methods
-
 	render: function() {
 		return(
-		<div>
+		<div id="connectedSection">
 		  <div className="ui page grid">
 		    <div className="twelve wide column">
 		      <textarea id="chat-history" ref="chatHistory"></textarea>
 		    </div>
 		    <div className="four wide column" id="online-user-list">
-		      <a className="ui teal ribbon label">Online Users {this.getUserCount()}</a>
+		      <a className="ui teal ribbon label">Online Users {this.state.users.length}</a>
 		      <br/>
-		      <span ng-repeat="nickname in chat.data.users">nickname
-		        <br/>
-		      </span>
+		       {this._displayUsers()}
 		    </div>
 		  </div>
 
@@ -33,7 +21,7 @@ var ConnectedSection = React.createClass({
 		      </div>
 		      <div className="eight wide column field">
 		        <input className="message" name="messageText" type="text" onChange={this._handleMessageChange}
-				   placeholder="Type message here..." />
+				   ref="messageBox" placeholder="Type message here..." />
 		      </div>
 		      <div className="two wide column">
 		        <input type="button" className="ui mini red button" value="Quit" onClick={this._handleQuit}/>
@@ -45,54 +33,68 @@ var ConnectedSection = React.createClass({
 	},
 
 	getInitialState: function() {
-		return null;
-	},
-	getDefaultProps: function() {
-		// NOP
+		return {
+			users: [],
+           history: ''
+		};
 	},
 
-	// Built-in Lifecycle Methods
-
-	componentWillMount: function(){
-		// NOP
-	},
 	componentDidMount: function(){
 		ConnectionStore.addChangeListener(this._onChange);
-	},
-	componentWillReceiveProps: function(){
-		// NOP
-	},
-	shouldComponentUpdate: function(){
-		// NOP
-	},
-	componentWillUpdate: function(){
-		// NOP
-	},
-	componentDidUpdate: function(){
-		// NOP
 	},
 
 	componentWillUnmount: function(){
 		ConnectionStore.removeChangeListener(this._onChange);
 	},
 
+	_disableSendButton: function() {
+		React.findDOMNode(this.refs.sendButton).className = "ui primary submit button disabled";
+	},
+
+	_enableSendButton: function() {
+		React.findDOMNode(this.refs.sendButton).className = "ui primary submit button";
+	},
+
 	// callback method for store to communicate any data change.
 	_onChange: function() {
-		// on call, you would pull data from the ConnectionStore for display
+		var csc = ConnectionStore.chat;
+		this.setState({
+			users: csc.data.users,
+			history: csc.data.history
+		});
+		var ch = React.findDOMNode(this.refs.chatHistory);
+        ch.value = this.state.history;
+        ch.scrollTop = ch.scrollHeight;
+		this.forceUpdate();
+	},
+
+	_displayUsers: function() {
+		var result = ""
+		return (
+		<div>
+			{this.state.users.map(function(user) {
+				return <span>{user}<br/></span>;
+			})}
+		</div>
+		);
 	},
 
 	// Send button pressed for message.
 	_handleSend: function() {
-		ConnectionActions.send("TODO The Message Goes Here.");
+		var msg = React.findDOMNode(this.refs.messageBox).value
+		ConnectionActions.send(msg);
+		React.findDOMNode(this.refs.messageBox).value = "";
+		this._disableSendButton();
 		return false;
 	},
 
-	// When the message field changes, check the length and disable the send button if it is empty.
+	// When the message field changes, check the length and disable the
+	// send button if it is empty.
 	_handleMessageChange: function(event) {
 		if(event.target.value.length > 0) {
-			React.findDOMNode(this.refs.sendButton).className = "ui primary submit button";
+			this._enableSendButton();
 		} else {
-			React.findDOMNode(this.refs.sendButton).className = "ui primary submit button disabled";
+			this._disableSendButton();
 		}
 	},
 

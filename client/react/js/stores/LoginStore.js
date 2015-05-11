@@ -35,17 +35,15 @@ var LoginStore = Object.assign({}, EventEmitter.prototype, {
 });
 
 LoginStore.dispatchToken = AppDispatcher.register(function(action) {
-  var ls = LoginStore;
-  var cs = ConnectionStore;
   switch (action.actionType) {
     case ActionTypes.LOGIN:
-		ls.setNickname(action.nickname);
-		cs.login();
+		LoginStore.setNickname(action.nickname);
+		ConnectionStore.login();
 		break;
     case ActionTypes.REFRESH_LOGIN:
-		ls.setNickname(action.nickname);
-		ls.setError(action.error);
-		ls.emitChange();
+		LoginStore.setNickname(action.nickname);
+		LoginStore.setError(action.error);
+		LoginStore.emitChange();
       break;
     default:
       // do nothing.

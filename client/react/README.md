@@ -1,7 +1,5 @@
 ## ChattyPantz Client Demo - React.js
 
-NOTE:  THIS IS A WORK IN PROGRESS AND NOT COMPLETED NOR FUNCTIONAL. FOR A DEMO PLEASE SEE ANGULAR DIRECTORY.
-
 This folder contains a simple demonstration of a client connection to the server using javascript and html.
 
 ### Dependencies

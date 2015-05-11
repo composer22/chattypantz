@@ -4,16 +4,13 @@ var ConnectionStore = Object.assign({}, EventEmitter.prototype, {
    chat: {
     socket: null,
     status: {
-      error: null,
-      starting: false,
-      started: false
+      error: '',
     },
     data: {
       users: [],
       room: 'Demo',
       nickname: '',
       history: '',
-      messageText: ''
     }
   },
 
@@ -33,32 +30,42 @@ var ConnectionStore = Object.assign({}, EventEmitter.prototype, {
 	 this.chat.init();
   },
 
-  getSocketError: function() {
+  setStatusError: function(error) {
+	 this.chat.status.error = error;
+  },
+
+  getStatusError: function() {
 	 return this.chat.status.error;
+  },
+
+  setNickname: function(nickname) {
+	 this.chat.data.nickname = nickname;
+  },
+
+  getNickname: function() {
+	 return this.chat.data.nickname;
   }
 
 });
 
 ConnectionStore.chat.init = function() {
+	this.data.users = [];
+	this.data.history = '';
     // Open a socket and register event handlers.
     this.socket = new WebSocket(Server);
     this.socket.onopen = this.onOpenWS;
     this.socket.onmessage = this.onMessageWS;
     this.socket.onerror = this.onErrorWS;
     this.socket.onclose = this.onErrorWS;
-    this.status.starting = true;
 };
 
 //////// SOCKET EVENT HANDLERS ////////
 
 ConnectionStore.chat.onOpenWS = function(e) {
-	var csc = ConnectionStore.chat;
-    var ls = LoginStore;
-    csc.status.starting = false;
-    csc.status.started = true;
-    csc.status.error = null;
-    csc.data.nickname = ls.getNickname();
-    // Set the nickname, join the demo room, and get a list of names.
+	var cs = ConnectionStore;
+	var csc = cs.chat;
+    cs.setNickname(LoginStore.getNickname());
+	cs.setStatusError('');
     csc.sendRequest('', RequestTypes.SET_NICKNAME,  csc.data.nickname);
     csc.sendRequest(csc.data.room, RequestTypes.JOIN, csc.data.room);
 	React.render(
@@ -95,33 +102,34 @@ ConnectionStore.chat.onMessageWS = function(message) {
 	  ConnectionActions.refresh();
       break;
     case ResponseTypes.ERR_NICKNAME_USED:
-      csc.data.history += "Chattypantz server: " + response.content + '\n';
-      csc.data.history += "Quitting Chattypantz.\n";
+      ConnectionStore.setStatusError(response.content);
+      ConnectionActions.logout();
       break;
     default:
-      csc.data.history += response.content + '\n';
-      csc.data.history += "Quitting Chattypantz.\n";
+	  ConnectionStore.setStatusError(response.content);
+	  ConnectionActions.logout();
   }
 };
 
 // Connection error.
 ConnectionStore.chat.onErrorWS = function(e) {
-  var csc = ConnectionStore.chat;
-  var ls = LoginStore;
-  // Stop run and show err.
-  csc.status.error = "Server disconnected: " + e.reason;
-  csc.status.started = false;
-  ls.setError(csc.status.error);
-  if(typeof LoginSection != "undefined") {
-	LoginActions.refresh(csc.data.nickname, csc.status.error);
+  var nickname = ConnectionStore.getNickname();
+  var err = ConnectionStore.getStatusError();
+
+  if(e.code != 1000) {
+    err = "Server disconnected: " + e.code + ' ' + e.reason;
+  }
+
+  if(document.getElementById("loginSection") != null) {
+	LoginActions.refresh(nickname, err);
   } else {
-	ls.setNickname('');
+	LoginStore.setNickname(nickname);
+	LoginStore.setError(err);
 	React.render(
 	 <LoginSection />,
 	  document.getElementById("chattypantzapp")
 	);
- }
-
+  }
 };
 
 // Sends a request to the server
@@ -135,14 +143,18 @@ ConnectionStore.chat.sendRequest = function(room, type, content) {
 
 // Register the store with the dispatcher.
 ConnectionStore.dispatchToken = AppDispatcher.register(function(action) {
+  var cs = ConnectionStore;
+  var csc = cs.chat;
   switch (action.actionType) {
+	case ActionTypes.REFRESH_CONNECTION:
+		cs.emitChange();
+		break;
 	case ActionTypes.SEND_MESSAGE:
+    	csc.sendRequest(csc.data.room, RequestTypes.MSG, action.message);
+		cs.emitChange();
      	break;
     case ActionTypes.LOGOUT:
-		React.render(
-			 <LoginSection />,
-			  document.getElementById("chattypantzapp")
-			);
+		csc.socket.close();
        break;
     default:
       // do nothing.

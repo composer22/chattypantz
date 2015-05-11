@@ -149,6 +149,9 @@ func (r *ChatRoom) message(q *ChatRequest) {
 
 // leave removes the chatter from the room and notifies the group the chatter has left.
 func (r *ChatRoom) leave(q *ChatRequest) {
+	if ok := r.isMember(q.Who); !ok {
+		return
+	}
 	name := q.Who.Nickname()
 	var names []string
 	r.mu.Lock()
